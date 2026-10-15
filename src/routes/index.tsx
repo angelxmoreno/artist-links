@@ -122,7 +122,7 @@ function Index() {
       <main className="flex-1 w-full max-w-7xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-16">
         <div className="mx-auto max-w-3xl">
           <h1 className="font-display text-4xl sm:text-5xl tracking-tight text-center">
-            Artist Links2
+            Artist Links3
           </h1>
           <p className="mt-3 text-center text-muted-foreground">
             Paste one artist link. Get all of them.
