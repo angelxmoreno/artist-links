@@ -1,8 +1,24 @@
 import type { ComponentType } from "react";
 import {
-  SiSpotify, SiApplemusic, SiDeezer, SiTidal, SiYoutubemusic, SiSoundcloud,
-  SiBandcamp, SiAudiomack, SiInstagram, SiX, SiFacebook, SiTiktok, SiYoutube,
-  SiBluesky, SiWikipedia, SiWikidata, SiDiscogs, SiGenius, SiLastdotfm,
+  SiSpotify,
+  SiApplemusic,
+  SiDeezer,
+  SiTidal,
+  SiYoutubemusic,
+  SiSoundcloud,
+  SiBandcamp,
+  SiAudiomack,
+  SiInstagram,
+  SiX,
+  SiFacebook,
+  SiTiktok,
+  SiYoutube,
+  SiBluesky,
+  SiWikipedia,
+  SiWikidata,
+  SiDiscogs,
+  SiGenius,
+  SiLastdotfm,
 } from "@icons-pack/react-simple-icons";
 
 export type PlatformIcon = ComponentType<{ className?: string }>;

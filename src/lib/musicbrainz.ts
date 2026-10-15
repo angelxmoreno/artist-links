@@ -20,9 +20,7 @@ export class NotFound extends Error {}
 
 async function mbFetch<T>(path: string, retried = false): Promise<T> {
   try {
-    const res = await schedule(() =>
-      fetch(MB + path, { headers: { Accept: "application/json" } }),
-    );
+    const res = await schedule(() => fetch(MB + path, { headers: { Accept: "application/json" } }));
     if (res.status === 404) throw new NotFound("not found");
     if (res.status === 503 && !retried) {
       await wait(2000);
@@ -36,9 +34,7 @@ async function mbFetch<T>(path: string, retried = false): Promise<T> {
       await wait(2000);
       return mbFetch<T>(path, true);
     }
-    throw new Error(
-      "Couldn't reach MusicBrainz. Check your connection or try again in a moment.",
-    );
+    throw new Error("Couldn't reach MusicBrainz. Check your connection or try again in a moment.");
   }
 }
 
@@ -82,8 +78,7 @@ export function urlVariants(u: URL): string[] {
   const path = u.pathname.replace(/\/+$/, "");
   const hosts = [host, "www." + host];
   const out: string[] = [];
-  for (const h of hosts)
-    for (const p of [path, path + "/"]) out.push(`https://${h}${p || "/"}`);
+  for (const h of hosts) for (const p of [path, path + "/"]) out.push(`https://${h}${p || "/"}`);
   return [...new Set(out)];
 }
 
@@ -104,13 +99,12 @@ export async function findArtistByUrl(input: string): Promise<string | null> {
   return null;
 }
 
-export const getArtist = (mbid: string) =>
-  mbFetch<Artist>(`/artist/${mbid}?inc=url-rels&fmt=json`);
+export const getArtist = (mbid: string) => mbFetch<Artist>(`/artist/${mbid}?inc=url-rels&fmt=json`);
 
 export const searchArtists = (name: string) =>
-  mbFetch<{ artists: Artist[] }>(
-    `/artist?query=${encodeURIComponent(name)}&fmt=json&limit=5`,
-  ).then((d) => d.artists.slice(0, 5));
+  mbFetch<{ artists: Artist[] }>(`/artist?query=${encodeURIComponent(name)}&fmt=json&limit=5`).then(
+    (d) => d.artists.slice(0, 5),
+  );
 
 export type Group = "Streaming" | "Social" | "Reference" | "Official website" | "Other";
 export const GROUPS: Group[] = ["Streaming", "Social", "Reference", "Official website", "Other"];
@@ -149,8 +143,10 @@ export function classify(url: string, relType: string): LinkItem {
   try {
     host = new URL(url).hostname.replace(/^www\./, "");
   } catch {}
-  for (const [re, name, group] of PLATFORMS) if (re.test(host)) return { url, platform: name, group };
-  if (relType === "official homepage") return { url, platform: "Official website", group: "Official website" };
+  for (const [re, name, group] of PLATFORMS)
+    if (re.test(host)) return { url, platform: name, group };
+  if (relType === "official homepage")
+    return { url, platform: "Official website", group: "Official website" };
   return { url, platform: host, group: "Other" };
 }
 
