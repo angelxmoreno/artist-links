@@ -6,6 +6,7 @@ import { shortUrl } from "@/lib/format";
 import { platformIcon } from "@/lib/platform-icons";
 import type { Artist } from "@/lib/types";
 import { Notice } from "./Notice";
+import { track } from "@/lib/analytics";
 
 const ICONS: Record<Group, typeof Music2> = {
   Streaming: Music2,
@@ -81,6 +82,7 @@ export function ArtistView({ artist }: { artist: Artist }) {
                       href={l.url}
                       target="_blank"
                       rel="noreferrer"
+                      onClick={() => track("link_click", { platform: l.platform })}
                       aria-label={`Open ${l.platform}`}
                       className="size-9 grid place-items-center rounded-lg hover:bg-accent"
                     >

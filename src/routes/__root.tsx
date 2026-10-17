@@ -13,6 +13,8 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { captureClientException, initClientMonitoring } from "../lib/monitoring";
+import { getRootData } from "../lib/root-data";
 
 function NotFoundComponent() {
   return (
@@ -41,6 +43,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    captureClientException(error);
   }, [error]);
 
   return (
@@ -75,29 +78,56 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Artist Links" },
-      { name: "description", content: "Find every link for any music artist." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
-    ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Instrument+Serif&display=swap",
-      },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-    ],
-  }),
+  // Runtime env (not VITE_ build vars): resolved on the server per request, then
+  // serialized into the dehydrated router state for hydration.
+  // og:url and canonical are set per route (they need the route pathname).
+  loader: () => getRootData(),
+  staleTime: Infinity,
+  head: ({ loaderData }) => {
+    const config = loaderData?.config;
+    const origin = loaderData?.origin ?? null;
+    const image = origin ? `${origin}/og.png` : "/og.png";
+
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { name: "theme-color", content: "#e8643c" },
+        { property: "og:site_name", content: "Artist Links" },
+        { property: "og:type", content: "website" },
+        { property: "og:image", content: image },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:image", content: image },
+      ],
+      links: [
+        {
+          rel: "stylesheet",
+          href: appCss,
+        },
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Instrument+Serif&display=swap",
+        },
+        { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+        { rel: "icon", href: "/favicon.ico", sizes: "any" },
+        { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+        { rel: "manifest", href: "/site.webmanifest" },
+      ],
+      scripts:
+        config?.umamiScriptUrl && config.umamiWebsiteId
+          ? [
+              {
+                src: config.umamiScriptUrl,
+                defer: true,
+                "data-website-id": config.umamiWebsiteId,
+              },
+            ]
+          : [],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -120,6 +150,12 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { config } = Route.useLoaderData();
+  const sentryDsn = config.sentryDsn;
+
+  useEffect(() => {
+    initClientMonitoring(sentryDsn);
+  }, [sentryDsn]);
 
   return (
     <QueryClientProvider client={queryClient}>

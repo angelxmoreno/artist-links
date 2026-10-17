@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Artist Links - OG image</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1a1512;
+    --muted: #68625e;
+    --primary: #d95737;
+    --accent: #feeae1;
+    --border: #e1ddd8;
+    --display: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; background: var(--bg); }
+  .card {
+    position: relative; width: 1200px; height: 630px; padding: 64px 80px 72px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-family: var(--sans); color: var(--fg);
+    background:
+      radial-gradient(circle at 100% 0%, var(--accent) 0, rgba(254,234,225,0) 55%),
+      var(--bg);
+  }
+  .brand { display: flex; align-items: center; gap: 18px; }
+  .brand img { width: 64px; height: 64px; display: block; }
+  .brand span { font-family: var(--display); font-size: 44px; letter-spacing: -0.5px; line-height: 1; }
+  .brand span b { font-weight: 400; color: var(--primary); }
+  h1 {
+    font-family: var(--display); font-weight: 400; font-size: 112px; line-height: 0.98;
+    letter-spacing: -2px; max-width: 900px;
+  }
+  h1 em { font-style: italic; color: var(--primary); }
+  p { font-size: 30px; line-height: 1.4; color: var(--muted); max-width: 760px; margin-top: 28px; }
+  .deco { position: absolute; right: -40px; bottom: -60px; width: 440px; height: 440px; opacity: .9; }
+</style>
+</head>
+<body>
+<div class="card">
+  <svg class="deco" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+    <g stroke="#f6c9b7" stroke-width="2.4" stroke-linecap="round">
+      <line x1="32" y1="34" x2="32" y2="15"/><line x1="32" y1="34" x2="48.5" y2="43.5"/><line x1="32" y1="34" x2="15.5" y2="43.5"/>
+    </g>
+    <g fill="#f6c9b7"><circle cx="32" cy="15" r="5.6"/><circle cx="48.5" cy="43.5" r="5.6"/><circle cx="15.5" cy="43.5" r="5.6"/><circle cx="32" cy="34" r="9"/></g>
+    <circle cx="32" cy="34" r="2.8" fill="#fbfaf7"/>
+  </svg>
+
+  <div class="brand">
+    <img src="../public/favicon.svg" alt="">
+    <span>Artist <b>Links</b></span>
+  </div>
+
+  <div>
+    <h1>Paste one artist link.<br>Get <em>all of them.</em></h1>
+    <p>Spotify, Bandcamp, Instagram, official sites and more, gathered in seconds from MusicBrainz.</p>
+  </div>
+
+</body>
+</html>

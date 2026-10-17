@@ -10,6 +10,9 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
       throw error;
     }
     console.error(error);
+    // dynamic import keeps the server-only module out of the client graph
+    const { captureServerException } = await import("./server/monitoring.server");
+    await captureServerException(error);
     return new Response(renderErrorPage(), {
       status: 500,
       headers: { "content-type": "text/html; charset=utf-8" },

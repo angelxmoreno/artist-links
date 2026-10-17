@@ -7,6 +7,14 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
+// Dynamic import keeps @sentry/node out of the default (Cloudflare) import graph's
+// eager path; reporting is best-effort and must never affect the response.
+function reportServerError(error: unknown): void {
+  void import("./server/monitoring.server")
+    .then((m) => m.captureServerException(error))
+    .catch(() => {});
+}
+
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 async function getServerEntry(): Promise<ServerEntry> {
@@ -28,7 +36,9 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   const body = await response.clone().text();
   if (!isH3SwallowedErrorBody(body)) return response;
 
-  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
+  const error = consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`);
+  console.error(error);
+  reportServerError(error);
   return new Response(renderErrorPage(), {
     status: 500,
     headers: { "content-type": "text/html; charset=utf-8" },
@@ -52,6 +62,7 @@ export default {
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
+      reportServerError(error);
       return new Response(renderErrorPage(), {
         status: 500,
         headers: { "content-type": "text/html; charset=utf-8" },

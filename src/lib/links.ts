@@ -24,7 +24,7 @@ export function normalizeUrl(input: string): URL {
 }
 
 export function urlVariants(u: URL): string[] {
-  const host = u.hostname;
+  const host = u.hostname.replace(/^www\./, "");
   const path = u.pathname.replace(/\/+$/, "");
   const hosts = [host, "www." + host];
   const out: string[] = [];
