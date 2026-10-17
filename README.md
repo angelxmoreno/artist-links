@@ -25,7 +25,7 @@ Copy `.env.example` to `.env`. Everything is optional; empty means the feature i
 | --------------------------------------- | ---------------------------------------------------------------- |
 | `MUSICBRAINZ_CONTACT`                   | Contact URL/email in the MusicBrainz `User-Agent` (their policy) |
 | `SITE_URL`                              | Base URL for canonical/OG/sitemap; empty = request origin        |
-| `SENTRY_DSN` / `PUBLIC_SENTRY_DSN`      | Bugsink DSN for server / browser errors                          |
+| `SENTRY_DSN`                            | Bugsink DSN for server and browser errors                        |
 | `UMAMI_SCRIPT_URL` / `UMAMI_WEBSITE_ID` | Umami analytics script and site ID                               |
 
 ## Self-hosted deploy (Docker / Dokploy)

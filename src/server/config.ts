@@ -10,7 +10,7 @@ export function getPublicConfig(): PublicConfig {
   const siteUrl = readEnv("SITE_URL");
   return {
     siteUrl: siteUrl ? siteUrl.replace(/\/+$/, "") : null,
-    sentryDsn: readEnv("PUBLIC_SENTRY_DSN"),
+    sentryDsn: readEnv("SENTRY_DSN"),
     umamiScriptUrl: readEnv("UMAMI_SCRIPT_URL"),
     umamiWebsiteId: readEnv("UMAMI_WEBSITE_ID"),
   };
