@@ -8,8 +8,12 @@ export type LookupResult =
 export interface PublicConfig {
   siteUrl: string | null;
   sentryDsn: string | null;
+  /** Sentry/Bugsink environment tag: SENTRY_ENVIRONMENT, else NODE_ENV (development, production). */
+  environment: string;
   umamiScriptUrl: string | null;
   umamiWebsiteId: string | null;
+  /** Hostname Umami should record, taken from SITE_URL so dev/preview traffic is ignored. */
+  umamiDomains: string | null;
 }
 
 export type { Artist };

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, Copy, ExternalLink, Music2, Users, BookOpen, Globe, Link2 } from "lucide-react";
 import { toast } from "sonner";
-import { artistLinks, GROUPS, type Group } from "@/lib/platforms";
+import { artistLinks, GROUPS, type Group, type LinkItem } from "@/lib/platforms";
 import { shortUrl } from "@/lib/format";
 import { platformIcon } from "@/lib/platform-icons";
 import type { Artist } from "@/lib/types";
@@ -23,6 +23,14 @@ function copy(text: string, what = "Copied") {
 export function ArtistView({ artist }: { artist: Artist }) {
   const links = artistLinks(artist);
   const [copied, setCopied] = useState(false);
+  // Artist name/id + platform, never the pasted URL. Umami can break platforms down per artist.
+  const trackLink = (l: LinkItem) =>
+    track("link_click", {
+      artist: artist.name,
+      mbid: artist.id,
+      platform: l.platform,
+      group: l.group,
+    });
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -82,7 +90,8 @@ export function ArtistView({ artist }: { artist: Artist }) {
                       href={l.url}
                       target="_blank"
                       rel="noreferrer"
-                      onClick={() => track("link_click", { platform: l.platform })}
+                      onClick={() => trackLink(l)}
+                      onAuxClick={() => trackLink(l)}
                       aria-label={`Open ${l.platform}`}
                       className="size-9 grid place-items-center rounded-lg hover:bg-accent"
                     >

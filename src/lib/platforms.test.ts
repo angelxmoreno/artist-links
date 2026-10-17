@@ -168,7 +168,7 @@ describe("artistLinks", () => {
     expect(links[0]?.platform).toBe("Instagram");
   });
 
-  it("dedupes identical urls, keeping the first and order", () => {
+  it("dedupes identical urls and orders by group, then platform A-Z", () => {
     const links = artistLinks(
       artist([
         { type: "social network", url: { resource: "https://instagram.com/a" } },
@@ -176,7 +176,30 @@ describe("artistLinks", () => {
         { type: "social network", url: { resource: "https://instagram.com/a" } },
       ]),
     );
-    expect(links.map((l) => l.platform)).toEqual(["Instagram", "Spotify"]);
+    expect(links.map((l) => l.platform)).toEqual(["Spotify", "Instagram"]);
+  });
+
+  it("sorts A-Z within each group", () => {
+    const links = artistLinks(
+      artist([
+        { type: "x", url: { resource: "https://tidal.com/artist/1" } },
+        { type: "x", url: { resource: "https://www.tiktok.com/@a" } },
+        { type: "x", url: { resource: "https://open.spotify.com/artist/1" } },
+        { type: "x", url: { resource: "https://instagram.com/a" } },
+        { type: "x", url: { resource: "https://bandcamp.com/a" } },
+        { type: "x", url: { resource: "https://en.wikipedia.org/wiki/A" } },
+        { type: "x", url: { resource: "https://discogs.com/artist/1" } },
+      ]),
+    );
+    expect(links.map((l) => l.platform)).toEqual([
+      "Bandcamp",
+      "Spotify",
+      "Tidal",
+      "Instagram",
+      "TikTok",
+      "Discogs",
+      "Wikipedia",
+    ]);
   });
 
   it("passes the relation type to classify", () => {

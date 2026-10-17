@@ -1,6 +1,7 @@
 // Backend error reporting (Sentry SDK -> Bugsink). Only loaded via dynamic import
 // from src/server.ts, and a no-op unless SENTRY_DSN is set.
 import type * as SentryNode from "@sentry/node";
+import { sentryEnvironment } from "./config";
 
 let sentry: typeof SentryNode | null | undefined;
 let initPromise: Promise<typeof SentryNode | null> | undefined;
@@ -21,7 +22,8 @@ async function load(): Promise<typeof SentryNode | null> {
         urlQueryParams: false,
       },
       release: process.env["SENTRY_RELEASE"]?.trim() || undefined,
-      environment: process.env["SENTRY_ENVIRONMENT"]?.trim() || process.env["NODE_ENV"],
+      environment: sentryEnvironment(),
+      initialScope: { tags: { runtime: "server" } },
     });
     registerShutdownFlush();
     return Sentry;

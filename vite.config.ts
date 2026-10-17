@@ -23,7 +23,9 @@ export default defineConfig(({ command }) => ({
       },
     }),
     // Production builds run as a plain Node server (.output/server/index.mjs).
-    ...(command === "build" ? [nitro({ preset: "node-server" })] : []),
+    ...(command === "build"
+      ? [nitro({ preset: "node-server", plugins: ["./src/server/nitro-plugin.ts"] })]
+      : []),
     viteReact(),
   ],
 }));

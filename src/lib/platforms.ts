@@ -102,5 +102,10 @@ export function artistLinks(a: Artist): LinkItem[] {
     seen.add(url);
     items.push(classify(url, r.type));
   }
-  return items;
+  // Group order first, then A-Z by platform name (unknown hosts sort by hostname).
+  return items.sort(
+    (a, b) =>
+      GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group) ||
+      a.platform.localeCompare(b.platform, "en", { sensitivity: "base" }),
+  );
 }

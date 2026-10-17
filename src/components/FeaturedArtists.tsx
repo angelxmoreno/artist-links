@@ -1,5 +1,31 @@
+import { useState } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { FEATURED } from "@/data/featured";
+import { commonsThumb, FEATURED, type FeaturedArtist } from "@/data/featured";
+
+function Avatar({ artist }: { artist: FeaturedArtist }) {
+  const [broken, setBroken] = useState(false);
+  if (artist.image && !broken) {
+    return (
+      <img
+        src={commonsThumb(artist.image, 96)}
+        alt=""
+        width={48}
+        height={48}
+        loading="lazy"
+        onError={() => setBroken(true)}
+        className="size-12 shrink-0 rounded-lg bg-accent object-cover"
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-12 shrink-0 place-items-center rounded-lg bg-accent font-display text-2xl leading-none text-accent-foreground transition group-hover:bg-primary group-hover:text-primary-foreground"
+    >
+      {artist.name.charAt(0)}
+    </span>
+  );
+}
 
 export function FeaturedArtists({ onPick }: { onPick: (mbid: string, name: string) => void }) {
   return (
@@ -19,12 +45,7 @@ export function FeaturedArtists({ onPick }: { onPick: (mbid: string, name: strin
               aria-label={`${a.name}: ${a.blurb}`}
               className="group flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <span
-                aria-hidden="true"
-                className="grid size-11 shrink-0 place-items-center rounded-lg bg-accent font-display text-2xl leading-none text-accent-foreground transition group-hover:bg-primary group-hover:text-primary-foreground"
-              >
-                {a.name.charAt(0)}
-              </span>
+              <Avatar artist={a} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-display text-xl leading-tight">{a.name}</span>
                 <span className="block truncate text-xs text-muted-foreground">{a.blurb}</span>
@@ -37,6 +58,7 @@ export function FeaturedArtists({ onPick }: { onPick: (mbid: string, name: strin
           </li>
         ))}
       </ul>
+      <p className="mt-3 text-xs text-muted-foreground">Photos via Wikimedia Commons</p>
     </section>
   );
 }

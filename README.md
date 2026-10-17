@@ -1,6 +1,6 @@
 # Artist Links
 
-Paste one link to a music artist (Spotify, Instagram, Bandcamp, official site, …) or search by name, and get all their other links, grouped by Streaming, Social, Reference, Official website and Other. Data comes from the public [MusicBrainz](https://musicbrainz.org) API, fetched server-side (1 request/second queue, 24h in-memory cache). Each artist has a server-rendered, shareable page at `/artist/<mbid>`; the homepage shows a curated Featured list (`src/data/featured.ts`) and the visitor's recently viewed artists (localStorage).
+Paste one link to a music artist (Spotify, Instagram, Bandcamp, official site, …) or search by name, and get all their other links, grouped by Streaming, Social, Reference, Official website and Other. Data comes from the public [MusicBrainz](https://musicbrainz.org) API, fetched server-side (1 request/second queue, 24h in-memory cache, Featured artists pre-warmed at boot). Each artist has a server-rendered, shareable page at `/artist/<mbid>`; the homepage shows a curated Featured list (`src/data/featured.ts`) and the visitor's recently viewed artists (localStorage).
 
 ## Stack
 
@@ -26,6 +26,7 @@ Copy `.env.example` to `.env`. Everything is optional; empty means the feature i
 | `MUSICBRAINZ_CONTACT`                   | Contact URL/email in the MusicBrainz `User-Agent` (their policy) |
 | `SITE_URL`                              | Base URL for canonical/OG/sitemap; empty = request origin        |
 | `SENTRY_DSN`                            | Bugsink DSN for server and browser errors                        |
+| `SENTRY_ENVIRONMENT`                    | Environment tag in Bugsink (empty = `NODE_ENV`)                  |
 | `UMAMI_SCRIPT_URL` / `UMAMI_WEBSITE_ID` | Umami analytics script and site ID                               |
 
 ## Self-hosted deploy (Docker / Dokploy)

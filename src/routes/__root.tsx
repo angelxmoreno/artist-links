@@ -121,6 +121,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
                 src: config.umamiScriptUrl,
                 defer: true,
                 "data-website-id": config.umamiWebsiteId,
+                // Only record the real site; localhost and preview hosts are ignored.
+                ...(config.umamiDomains ? { "data-domains": config.umamiDomains } : {}),
               },
             ]
           : [],
@@ -149,11 +151,11 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const { config } = Route.useLoaderData();
-  const sentryDsn = config.sentryDsn;
+  const { sentryDsn, environment } = config;
 
   useEffect(() => {
-    initClientMonitoring(sentryDsn);
-  }, [sentryDsn]);
+    initClientMonitoring(sentryDsn, environment);
+  }, [sentryDsn, environment]);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -14,7 +14,7 @@ Artist Links: paste a music-artist URL, get all their other links via MusicBrain
 - `src/routes/` — file-based routes: `__root.tsx` (head/meta, runtime config via `getRootData`), `index.tsx` (home: SearchBox, Recent, Featured, Hero), `artist.$mbid.tsx` (SSR artist page, per-artist meta + JSON-LD), `sitemap[.]xml.ts`, `robots[.]txt.ts`. `src/routeTree.gen.ts` is generated; don't edit.
 - `src/lib/api.ts` — server functions (`lookupByUrl`, `fetchArtist`, `searchByName`); `src/server/musicbrainz.server.ts` — MusicBrainz client with User-Agent, 1 req/s queue, TTL/LRU cache. Server-only code lives in `src/server/` and is imported dynamically inside handlers.
 - `src/lib/links.ts` (URL normalize), `platforms.ts` (host → platform/group), `platform-icons.ts`, `types.ts`, `api-types.ts` (server/UI contract), `looks-like-url.ts`, `analytics.ts` (Umami `track`), `monitoring.ts` (browser Sentry), `root-data.ts`.
-- `src/server/monitoring.server.ts` (Sentry node), `config.ts` (public runtime config from env), `origin.ts`.
+- `src/server/monitoring.server.ts` (Sentry node, tag `runtime=server`; browser uses `runtime=browser`), `config.ts` (public runtime config from env), `origin.ts`, `nitro-plugin.ts` + `warm.server.ts` (boot-time cache warm-up of Featured artists, via the app's own fetch because Nitro bundles plugins separately).
 - `src/components/` — app components (SearchBox, ArtistView, FeaturedArtists, RecentList, Hero, SiteShell); `ui/` is shadcn.
 - `src/data/featured.ts` — curated Featured artists (MBIDs). Edit to change the homepage list.
 - `src/hooks/use-recent.ts` — recently viewed (localStorage).

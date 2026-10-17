@@ -140,6 +140,12 @@
     border-color: var(--color-border);
   }
 
+  /* Tailwind 4 preflight resets buttons to cursor: default. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
