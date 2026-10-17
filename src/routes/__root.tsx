@@ -12,7 +12,6 @@ import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 import { captureClientException, initClientMonitoring } from "../lib/monitoring";
 import { getRootData } from "../lib/root-data";
 
@@ -42,7 +41,6 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
     captureClientException(error);
   }, [error]);
 

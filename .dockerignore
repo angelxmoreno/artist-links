@@ -2,14 +2,11 @@
 .output
 .nitro
 .tanstack
-.wrangler
-.lovable
 node_modules
 dist
 dist-ssr
 *.log
 .env*
-.dev.vars
 .DS_Store
 Dockerfile
 .dockerignore

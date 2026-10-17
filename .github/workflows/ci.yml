@@ -10,14 +10,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - name: Lockfile has no private registry URLs
-        run: "! grep -n 'pkg.dev' bun.lock"
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bun run test
       - run: bun run build
-        env:
-          NITRO_PRESET: node-server
 
   docker:
     runs-on: ubuntu-latest

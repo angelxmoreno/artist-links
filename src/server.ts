@@ -7,8 +7,8 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
-// Dynamic import keeps @sentry/node out of the default (Cloudflare) import graph's
-// eager path; reporting is best-effort and must never affect the response.
+// Dynamic import keeps @sentry/node off the eager path; reporting is best-effort
+// and must never affect the response.
 function reportServerError(error: unknown): void {
   void import("./server/monitoring.server")
     .then((m) => m.captureServerException(error))

@@ -4,8 +4,6 @@ WORKDIR /app
 COPY package.json bun.lock bunfig.toml ./
 RUN bun install --frozen-lockfile
 COPY . .
-# Lovable config builds for Cloudflare by default; this switches Nitro to a Node server.
-ENV NITRO_PRESET=node-server
 RUN bun run build
 
 FROM node:22-slim
