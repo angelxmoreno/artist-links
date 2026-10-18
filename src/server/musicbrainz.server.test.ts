@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import Keyv from "@keyvhq/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   BUSY_MESSAGE,
   createMusicBrainz,
@@ -11,6 +12,13 @@ import { createRateLimiter, limitHook, RATE_LIMITED_MESSAGE } from "./ratelimit"
 
 const MBID = "11111111-2222-4333-8444-555555555555";
 
+// keyvhq expires entries with Date.now(), so tests move the clock instead of passing `now`.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(1_000_000);
+});
+afterEach(() => vi.useRealTimers());
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
@@ -18,24 +26,28 @@ function setup(
   handler: (url: string, init?: RequestInit) => Response | Promise<Response>,
   o: MusicBrainzOptions = {},
 ) {
-  let t = 1_000_000;
   const sleeps: number[] = [];
   const calls: { url: string; at: number; init?: RequestInit | undefined }[] = [];
   const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
-    calls.push({ url: String(url), at: t, init });
+    calls.push({ url: String(url), at: Date.now(), init });
     return handler(String(url), init);
   });
   const mb = createMusicBrainz({
     fetch: fetchMock as unknown as typeof fetch,
-    now: () => t,
     sleep: async (ms) => {
       sleeps.push(ms);
-      t += ms;
+      vi.setSystemTime(Date.now() + ms);
     },
     contact: "mailto:test@example.com",
     ...o,
   });
-  return { mb, calls, sleeps, fetchMock, advance: (ms: number) => (t += ms) };
+  return {
+    mb,
+    calls,
+    sleeps,
+    fetchMock,
+    advance: (ms: number) => vi.setSystemTime(Date.now() + ms),
+  };
 }
 
 describe("cache", () => {
@@ -81,7 +93,6 @@ describe("cache", () => {
     await mb.searchArtists("b");
     await mb.searchArtists("a"); // refresh a
     await mb.searchArtists("c"); // evicts b
-    expect(mb.cacheSize()).toBe(2);
     await mb.searchArtists("a");
     expect(fetchMock).toHaveBeenCalledTimes(3);
     await mb.searchArtists("b");
@@ -100,7 +111,75 @@ describe("cache", () => {
   });
 });
 
+describe("injected keyvhq cache", () => {
+  it("stores parsed responses under the request path with the OK ttl", async () => {
+    const cache = new Keyv({ namespace: "mb" });
+    const { mb } = setup(() => json({ id: MBID, name: "A" }), { cache });
+    await mb.getArtist(MBID);
+    const key = `/artist/${MBID}?inc=url-rels&fmt=json`;
+    expect(await cache.get(key, { raw: true })).toEqual({
+      value: { value: { id: MBID, name: "A" }, notFound: false },
+      expires: Date.now() + 24 * 3600_000,
+    });
+  });
+
+  it("stores a remembered 404 with the shorter ttl", async () => {
+    const cache = new Keyv({ namespace: "mb" });
+    const { mb } = setup(() => new Response("", { status: 404 }), { cache });
+    await mb.getArtist(MBID);
+    const raw = await cache.get(`/artist/${MBID}?inc=url-rels&fmt=json`, { raw: true });
+    expect(raw?.expires).toBe(Date.now() + 3600_000);
+    expect(raw?.value).toEqual({ notFound: true });
+  });
+
+  it("a second client on the same store answers from it (survives a restart)", async () => {
+    const cache = new Keyv({ namespace: "mb" });
+    const first = setup(() => json({ id: MBID, name: "A" }), { cache });
+    await first.mb.getArtist(MBID);
+    const second = setup(() => json({ id: MBID, name: "changed" }), { cache });
+    expect((await second.mb.getArtist(MBID))?.name).toBe("A");
+    expect(second.fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("cache hits skip beforeNetwork, so the rate limiter is bypassed", async () => {
+    const cache = new Keyv({ namespace: "mb" });
+    await setup(() => json({ id: MBID, name: "A" }), { cache }).mb.getArtist(MBID);
+    const { mb } = setup(() => json({}), { cache });
+    const hook = vi.fn(() => {
+      throw new Error("denied");
+    });
+    await expect(mb.getArtist(MBID, { beforeNetwork: hook })).resolves.toMatchObject({ name: "A" });
+    expect(hook).not.toHaveBeenCalled();
+  });
+
+  it("treats a failing store as a miss and still answers", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const broken = {
+      get: async () => {
+        throw new Error("disk I/O error");
+      },
+      set: async () => {
+        throw new Error("disk full");
+      },
+      delete: async () => false,
+      clear: async () => {},
+    };
+    const cache = new Keyv({ store: broken as never, namespace: "mb" });
+    const { mb, fetchMock } = setup(() => json({ id: MBID, name: "A" }), { cache });
+    expect((await mb.getArtist(MBID))?.name).toBe("A");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("in-flight dedupe", () => {
+  it("does not refetch when a call arrives right after the first one finished", async () => {
+    const { mb, fetchMock } = setup(() => json({ id: MBID, name: "A" }));
+    const first = mb.getArtist(MBID);
+    await first;
+    await mb.getArtist(MBID);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("shares one request across concurrent identical calls", async () => {
     const { mb, fetchMock } = setup(() => json({ id: MBID, name: "A" }));
     const [a, b, c] = await Promise.all([

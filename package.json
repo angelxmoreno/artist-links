@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@icons-pack/react-simple-icons": "^13.15.1",
+    "@keyvhq/core": "^2.2.7",
+    "@keyvhq/sqlite": "^2.2.7",
     "@sentry/node": "^11.8.0",
     "@sentry/react": "^11.8.0",
     "@tailwindcss/vite": "^4.2.1",

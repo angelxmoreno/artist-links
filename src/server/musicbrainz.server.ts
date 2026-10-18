@@ -1,7 +1,9 @@
-// Server-only MusicBrainz client: real User-Agent, global request queue,
-// in-memory TTL+LRU cache and in-flight de-duplication. No TanStack imports.
+// Server-only MusicBrainz client: real User-Agent, global request queue, keyvhq cache
+// (SQLite file or memory, see cache.server.ts) and in-flight de-duplication. No TanStack imports.
+import type Keyv from "@keyvhq/core";
 import { normalizeUrl, urlVariants, UnsupportedUrl } from "../lib/links";
 import type { Artist, LookupResult } from "../lib/api-types";
+import { getAppCache, MAX_MEMORY_ENTRIES, memoryKeyv, MB_NAMESPACE } from "./cache.server";
 
 const MB = "https://musicbrainz.org/ws/2";
 const DEFAULT_CONTACT = "https://github.com/angelxmoreno/artist-links";
@@ -11,7 +13,7 @@ export const MIN_INTERVAL_MS = 1100;
 export const RETRY_DELAY_MS = 2000;
 export const OK_TTL_MS = 24 * 60 * 60 * 1000;
 export const NOTFOUND_TTL_MS = 60 * 60 * 1000;
-export const MAX_CACHE_ENTRIES = 500;
+export const MAX_CACHE_ENTRIES = MAX_MEMORY_ENTRIES;
 export const MAX_QUERY_LENGTH = 100;
 /** Max requests pending (in flight plus waiting) in the queue; about 22s of waiting at 1 req/s. */
 export const MAX_QUEUE_LENGTH = 20;
@@ -40,6 +42,9 @@ export interface MusicBrainzOptions {
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   contact?: string | undefined;
+  /** keyvhq instance holding the responses. Default: a private in-memory one (tests, no disk). */
+  cache?: Keyv;
+  /** Size of the default in-memory cache (ignored when `cache` is given). */
   maxEntries?: number;
   okTtlMs?: number;
   notFoundTtlMs?: number;
@@ -48,14 +53,15 @@ export interface MusicBrainzOptions {
   maxQueue?: number;
 }
 
-type CacheEntry = { value?: unknown; notFound: boolean; expires: number };
+/** What is stored per request path: the parsed response, or a remembered 404. */
+type CacheEntry = { value?: unknown; notFound: boolean };
 
 export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
   const doFetch = opts.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
   const now = opts.now ?? (() => Date.now());
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const contact = opts.contact ?? (process.env["MUSICBRAINZ_CONTACT"] || DEFAULT_CONTACT);
-  const maxEntries = opts.maxEntries ?? MAX_CACHE_ENTRIES;
+  const cache = opts.cache ?? memoryKeyv(opts.maxEntries ?? MAX_CACHE_ENTRIES, MB_NAMESPACE);
   const okTtl = opts.okTtlMs ?? OK_TTL_MS;
   const nfTtl = opts.notFoundTtlMs ?? NOTFOUND_TTL_MS;
   const minInterval = opts.minIntervalMs ?? MIN_INTERVAL_MS;
@@ -84,29 +90,24 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
     return run;
   }
 
-  // LRU (Map insertion order) + TTL cache keyed by request path.
-  const cache = new Map<string, CacheEntry>();
   const inflight = new Map<string, Promise<unknown>>();
 
-  function cacheGet(key: string): CacheEntry | undefined {
-    const e = cache.get(key);
-    if (!e) return undefined;
-    if (e.expires <= now()) {
-      cache.delete(key);
+  // The cache is best effort: a failing store counts as a miss / a dropped write, and the
+  // request goes to MusicBrainz as usual.
+  async function cacheGet(key: string): Promise<CacheEntry | undefined> {
+    try {
+      return (await cache.get(key)) as CacheEntry | undefined;
+    } catch (e) {
+      console.warn("[cache] read failed", e instanceof Error ? e.message : e);
       return undefined;
     }
-    cache.delete(key);
-    cache.set(key, e);
-    return e;
   }
 
-  function cacheSet(key: string, entry: CacheEntry) {
-    cache.delete(key);
-    cache.set(key, entry);
-    while (cache.size > maxEntries) {
-      const oldest = cache.keys().next().value;
-      if (oldest === undefined) break;
-      cache.delete(oldest);
+  async function cacheSet(key: string, entry: CacheEntry, ttl: number): Promise<void> {
+    try {
+      await cache.set(key, entry, ttl);
+    } catch (e) {
+      console.warn("[cache] write failed", e instanceof Error ? e.message : e);
     }
   }
 
@@ -130,32 +131,34 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
 
   /** Cached, de-duplicated GET. Throws NotFound on 404 (also cached, shorter TTL). */
   function mbFetch<T>(path: string, ctx?: CallContext): Promise<T> {
-    const hit = cacheGet(path);
-    if (hit)
-      return hit.notFound
-        ? Promise.reject(new NotFound("not found"))
-        : Promise.resolve(hit.value as T);
     const pending = inflight.get(path);
     if (pending) return pending as Promise<T>;
-    try {
+    return (async () => {
+      const hit = await cacheGet(path);
+      if (hit) {
+        if (hit.notFound) throw new NotFound("not found");
+        return hit.value as T;
+      }
+      // Someone may have started the same request while we read the cache.
+      const started = inflight.get(path);
+      if (started) return (await started) as T;
       ctx?.beforeNetwork?.();
-    } catch (e) {
-      return Promise.reject(e);
-    }
-    const p = rawFetch<T>(path)
-      .then(
-        (value) => {
-          cacheSet(path, { value, notFound: false, expires: now() + okTtl });
-          return value;
-        },
-        (e) => {
-          if (e instanceof NotFound) cacheSet(path, { notFound: true, expires: now() + nfTtl });
-          throw e;
-        },
-      )
-      .finally(() => inflight.delete(path));
-    inflight.set(path, p);
-    return p;
+      const p = rawFetch<T>(path)
+        .then(
+          async (value) => {
+            await cacheSet(path, { value, notFound: false }, okTtl);
+            return value;
+          },
+          async (e) => {
+            if (e instanceof NotFound) await cacheSet(path, { notFound: true }, nfTtl);
+            throw e;
+          },
+        )
+        // After the write, so a new caller finds either the in-flight request or the cache entry.
+        .finally(() => inflight.delete(path));
+      inflight.set(path, p);
+      return p;
+    })();
   }
 
   async function lookupByUrl(input: string, ctx?: CallContext): Promise<LookupResult> {
@@ -214,12 +217,11 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
     lookupByUrl,
     getArtist,
     searchArtists,
-    cacheSize: () => cache.size,
     clearCache: () => cache.clear(),
   };
 }
 
-const defaultClient = createMusicBrainz();
+const defaultClient = createMusicBrainz({ cache: getAppCache().mb });
 
 export const lookupByUrl = defaultClient.lookupByUrl;
 export const getArtist = defaultClient.getArtist;

@@ -47,9 +47,20 @@ export const lookupByUrl = createServerFn({ method: "GET" })
   .inputValidator(z.object({ url: z.string().max(2000) }))
   .handler(({ data }): Promise<LookupResult> => run((mb, ctx) => mb.lookupByUrl(data.url, ctx)));
 
+// Remember the artist for the sitemap. Fire and forget: never awaited, never throws.
+function recordForSitemap(artist: Artist): void {
+  void import("../server/cache.server").then((c) => c.recordViewedIfLinked(artist)).catch(() => {});
+}
+
 export const fetchArtist = createServerFn({ method: "GET" })
   .inputValidator(z.object({ mbid: z.string().max(64) }))
-  .handler(({ data }): Promise<Artist | null> => run((mb, ctx) => mb.getArtist(data.mbid, ctx)));
+  .handler(({ data }): Promise<Artist | null> =>
+    run(async (mb, ctx) => {
+      const artist = await mb.getArtist(data.mbid, ctx);
+      if (artist) recordForSitemap(artist);
+      return artist;
+    }),
+  );
 
 export const searchByName = createServerFn({ method: "GET" })
   .inputValidator(z.object({ q: z.string().max(500) }))

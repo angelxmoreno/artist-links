@@ -1,15 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const [{ originFromRequest }, { FEATURED }] = await Promise.all([
-          import("../server/origin"),
-          import("../data/featured"),
-        ]);
+        const [{ originFromRequest }, { FEATURED }, { listViewedArtists, SITEMAP_MAX_URLS }] =
+          await Promise.all([
+            import("../server/origin"),
+            import("../data/featured"),
+            import("../server/cache.server"),
+          ]);
         const origin = originFromRequest(request);
-        const paths = ["/", ...FEATURED.map((a) => `/artist/${a.mbid}`)];
+        // Home and Featured come first; viewed artists fill what is left of the 50,000-URL
+        // limit of one sitemap file (beyond that, switch to a sitemap index of several files).
+        const fixed = ["/", ...FEATURED.map((a) => `/artist/${a.mbid}`)];
+        const viewed = (await listViewedArtists(SITEMAP_MAX_URLS))
+          .filter((id) => UUID_RE.test(id))
+          .map((id) => `/artist/${id}`);
+        const paths = [...new Set([...fixed, ...viewed])].slice(0, SITEMAP_MAX_URLS);
         const body =
           `<?xml version="1.0" encoding="UTF-8"?>\n` +
           `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +

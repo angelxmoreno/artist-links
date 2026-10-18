@@ -1,6 +1,6 @@
 # Artist Links
 
-Paste one link to a music artist (Spotify, Instagram, Bandcamp, official site, …) or search by name, and get all their other links, grouped by Streaming, Social, Reference, Official website and Other. Data comes from the public [MusicBrainz](https://musicbrainz.org) API, fetched server-side (1 request/second queue, 24h in-memory cache, Featured artists pre-warmed at boot). Each artist has a server-rendered, shareable page at `/artist/<mbid>`; the homepage shows a curated Featured list (`src/data/featured.ts`) and the visitor's recently viewed artists (localStorage).
+Paste one link to a music artist (Spotify, Instagram, Bandcamp, official site, …) or search by name, and get all their other links, grouped by Streaming, Social, Reference, Official website and Other. Data comes from the public [MusicBrainz](https://musicbrainz.org) API, fetched server-side (1 request/second queue, 24h cache that survives restarts when a SQLite file is configured, Featured artists pre-warmed at boot). Each artist has a server-rendered, shareable page at `/artist/<mbid>`; the homepage shows a curated Featured list (`src/data/featured.ts`) and the visitor's recently viewed artists (localStorage).
 
 ## Stack
 
@@ -28,6 +28,7 @@ Copy `.env.example` to `.env`. Everything is optional; empty means the feature i
 | `SENTRY_DSN`                            | Bugsink DSN for server and browser errors                        |
 | `SENTRY_ENVIRONMENT`                    | Environment tag in Bugsink (empty = `NODE_ENV`)                  |
 | `UMAMI_SCRIPT_URL` / `UMAMI_WEBSITE_ID` | Umami analytics script and site ID                               |
+| `CACHE_DB_PATH`                         | SQLite file for the persisted cache; empty = memory only         |
 | `APP_VERSION`                           | Deployed tag shown by `/healthz` (build arg, see Deploy below)   |
 
 ## Self-hosted deploy (Docker / Dokploy)
@@ -52,6 +53,26 @@ HOST=0.0.0.0 PORT=3000 node .output/server/index.mjs
 ```
 
 In Dokploy, use the Dockerfile build type and container port 3000. Env vars are optional (see Configuration). CI (`.github/workflows/ci.yml`) runs lint, tests, build and a Docker build.
+
+### Persisted cache and the volume at /data
+
+MusicBrainz responses and the list of viewed artists are stored with [keyvhq](https://github.com/microlinkhq/keyvhq) (`@keyvhq/core` + `@keyvhq/sqlite`) in one SQLite file, so a restart or deploy no longer starts cold and the sitemap keeps growing.
+
+- **What is cached:** the parsed MusicBrainz response per request path (artist pages, URL lookups, name searches), 24h for hits and 1h for "not found". A request that is already cached never reaches the rate limiter or MusicBrainz. Expired rows are deleted by an hourly sweep, so the file does not grow forever.
+- **Sitemap:** `/sitemap.xml` lists home, the Featured artists and every artist page that was served with at least one link (re-recorded on each view; an artist not viewed for a year drops out). It is capped at 50,000 URLs, the sitemap protocol limit per file; beyond that it should become a sitemap index pointing at several files.
+- **No file configured:** `CACHE_DB_PATH` empty or unset keeps everything in memory (dev, tests; lost on restart, capped at 500 cached responses). If the file cannot be opened (missing permission, no volume) the server logs `[cache] cannot open ...` and falls back to memory instead of crashing.
+- **Single instance only.** SQLite on a local volume does not support several app replicas writing to one file. Keep Dokploy at 1 replica.
+- No backup needed: everything in the file can be fetched again.
+
+Set it up in Dokploy once (the Dockerfile already creates `/data` owned by the `node` user):
+
+1. App, **Environment** tab: add `CACHE_DB_PATH=/data/cache.sqlite` (runtime variable, no rebuild needed).
+2. App, **Advanced**, **Volumes / Mounts**: add a **Volume Mount** (a named volume, not a bind mount) with **Mount Path** `/data`.
+3. Redeploy. Check the logs for a missing `[cache] cannot open` line, then open a few artist pages and `/sitemap.xml`: viewed artists appear after the Featured ones.
+
+A named volume starts out owned by `node`. If you use a bind mount instead, `chown 1000:1000` the host folder first, otherwise the app falls back to memory (see the log line above).
+
+The SQLite driver (`@vscode/sqlite3`) is a native addon with no prebuilt binary, so it is compiled during the install. The Dockerfile compiles it in a separate stage on `node:22-slim` (the image that runs it, so the glibc matches) and copies it next to the traced JS in `.output/server/node_modules`. `bun install` locally and in CI needs `python3`, `make` and a C++ compiler (macOS with Xcode tools and GitHub's Ubuntu runners have them). A server started with plain `node .output/server/index.mjs` must run on the machine type it was built on.
 
 ### Health check and deployed version
 
