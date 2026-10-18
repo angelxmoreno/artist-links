@@ -13,12 +13,27 @@ export const OK_TTL_MS = 24 * 60 * 60 * 1000;
 export const NOTFOUND_TTL_MS = 60 * 60 * 1000;
 export const MAX_CACHE_ENTRIES = 500;
 export const MAX_QUERY_LENGTH = 100;
+/** Max requests pending (in flight plus waiting) in the queue; about 22s of waiting at 1 req/s. */
+export const MAX_QUEUE_LENGTH = 20;
 
 export const UNREACHABLE_MESSAGE =
   "Couldn't reach MusicBrainz. Check your connection or try again in a moment.";
 export const INVALID_LINK_MESSAGE = "That doesn't look like a valid link.";
+export const BUSY_MESSAGE = "MusicBrainz is busy right now. Please try again in a moment.";
 
 export class NotFound extends Error {}
+/** The queue is full; the request was not sent. */
+export class QueueFull extends Error {
+  constructor() {
+    super(BUSY_MESSAGE);
+  }
+}
+
+/** Per-call context. `beforeNetwork` runs only when a request would really go out to
+ * MusicBrainz (not for cache hits or joins of an in-flight request); throw to refuse it. */
+export interface CallContext {
+  beforeNetwork?: () => void;
+}
 
 export interface MusicBrainzOptions {
   fetch?: typeof fetch | undefined;
@@ -30,6 +45,7 @@ export interface MusicBrainzOptions {
   notFoundTtlMs?: number;
   minIntervalMs?: number;
   retryDelayMs?: number;
+  maxQueue?: number;
 }
 
 type CacheEntry = { value?: unknown; notFound: boolean; expires: number };
@@ -44,17 +60,25 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
   const nfTtl = opts.notFoundTtlMs ?? NOTFOUND_TTL_MS;
   const minInterval = opts.minIntervalMs ?? MIN_INTERVAL_MS;
   const retryDelay = opts.retryDelayMs ?? RETRY_DELAY_MS;
+  const maxQueue = opts.maxQueue ?? MAX_QUEUE_LENGTH;
   const userAgent = `ArtistLinks/0.1 ( ${contact} )`;
 
   // Global queue: requests to MusicBrainz are at least `minInterval` apart.
   let chain: Promise<unknown> = Promise.resolve();
   let last = -Infinity;
+  let queued = 0; // in flight + waiting; beyond maxQueue we refuse instead of growing forever
   function schedule<T>(fn: () => Promise<T>): Promise<T> {
+    if (queued >= maxQueue) return Promise.reject(new QueueFull());
+    queued++;
     const run = chain.then(async () => {
-      const delta = now() - last;
-      if (delta < minInterval) await sleep(minInterval - delta);
-      last = now();
-      return fn();
+      try {
+        const delta = now() - last;
+        if (delta < minInterval) await sleep(minInterval - delta);
+        last = now();
+        return await fn();
+      } finally {
+        queued--;
+      }
     });
     chain = run.catch(() => undefined);
     return run;
@@ -95,7 +119,7 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
       if (!res.ok) throw new Error(`MusicBrainz responded with ${res.status}`);
       return (await res.json()) as T;
     } catch (e) {
-      if (e instanceof NotFound) throw e;
+      if (e instanceof NotFound || e instanceof QueueFull) throw e;
       if (!retried) {
         await sleep(retryDelay);
         return rawFetch<T>(path, true);
@@ -105,7 +129,7 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
   }
 
   /** Cached, de-duplicated GET. Throws NotFound on 404 (also cached, shorter TTL). */
-  function mbFetch<T>(path: string): Promise<T> {
+  function mbFetch<T>(path: string, ctx?: CallContext): Promise<T> {
     const hit = cacheGet(path);
     if (hit)
       return hit.notFound
@@ -113,6 +137,11 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
         : Promise.resolve(hit.value as T);
     const pending = inflight.get(path);
     if (pending) return pending as Promise<T>;
+    try {
+      ctx?.beforeNetwork?.();
+    } catch (e) {
+      return Promise.reject(e);
+    }
     const p = rawFetch<T>(path)
       .then(
         (value) => {
@@ -129,7 +158,7 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
     return p;
   }
 
-  async function lookupByUrl(input: string): Promise<LookupResult> {
+  async function lookupByUrl(input: string, ctx?: CallContext): Promise<LookupResult> {
     let u: URL;
     try {
       u = normalizeUrl(input);
@@ -142,7 +171,7 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
       try {
         const data = await mbFetch<{
           relations?: { "target-type"?: string; artist?: { id: string } }[];
-        }>(`/url?resource=${encodeURIComponent(v)}&inc=artist-rels&fmt=json`);
+        }>(`/url?resource=${encodeURIComponent(v)}&inc=artist-rels&fmt=json`, ctx);
         const rel = data.relations?.find((r) => r.artist);
         if (rel?.artist) return { status: "found", mbid: rel.artist.id };
       } catch (e) {
@@ -153,23 +182,24 @@ export function createMusicBrainz(opts: MusicBrainzOptions = {}) {
     return { status: "notfound" };
   }
 
-  async function getArtist(mbid: string): Promise<Artist | null> {
+  async function getArtist(mbid: string, ctx?: CallContext): Promise<Artist | null> {
     if (typeof mbid !== "string" || !UUID_RE.test(mbid)) return null;
     try {
-      return await mbFetch<Artist>(`/artist/${mbid.toLowerCase()}?inc=url-rels&fmt=json`);
+      return await mbFetch<Artist>(`/artist/${mbid.toLowerCase()}?inc=url-rels&fmt=json`, ctx);
     } catch (e) {
       if (e instanceof NotFound) return null;
       throw e;
     }
   }
 
-  async function searchArtists(q: string): Promise<Artist[]> {
+  async function searchArtists(q: string, ctx?: CallContext): Promise<Artist[]> {
     const query = typeof q === "string" ? q.trim() : "";
     if (!query) throw new Error("Enter an artist name to search.");
     if (query.length > MAX_QUERY_LENGTH) throw new Error("That search is too long.");
     try {
       const d = await mbFetch<{ artists?: Artist[] }>(
         `/artist?query=${encodeURIComponent(query)}&fmt=json&limit=5`,
+        ctx,
       );
       return (d.artists ?? []).slice(0, 5);
     } catch (e) {

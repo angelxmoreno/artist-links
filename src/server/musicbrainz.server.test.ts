@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  BUSY_MESSAGE,
   createMusicBrainz,
   INVALID_LINK_MESSAGE,
+  MAX_QUEUE_LENGTH,
   UNREACHABLE_MESSAGE,
   type MusicBrainzOptions,
 } from "./musicbrainz.server";
+import { createRateLimiter, limitHook, RATE_LIMITED_MESSAGE } from "./ratelimit";
 
 const MBID = "11111111-2222-4333-8444-555555555555";
 
@@ -118,6 +121,125 @@ describe("queue", () => {
     expect(calls).toHaveLength(3);
     expect(calls[1]!.at - calls[0]!.at).toBeGreaterThanOrEqual(1100);
     expect(calls[2]!.at - calls[1]!.at).toBeGreaterThanOrEqual(1100);
+  });
+});
+
+describe("queue cap", () => {
+  function gated(maxQueue: number) {
+    let open!: () => void;
+    const gate = new Promise<void>((r) => (open = r));
+    const s = setup(
+      async () => {
+        await gate;
+        return json({ artists: [] });
+      },
+      { maxQueue },
+    );
+    return { ...s, open };
+  }
+
+  it("rejects with a friendly busy error once the queue is full, without calling MusicBrainz", async () => {
+    const { mb, fetchMock, open } = gated(2);
+    const a = mb.searchArtists("a");
+    const b = mb.searchArtists("b");
+    await expect(mb.searchArtists("c")).rejects.toThrow(BUSY_MESSAGE);
+    open();
+    await Promise.all([a, b]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry or cache the rejection, and frees room as requests finish", async () => {
+    const { mb, fetchMock, open } = gated(1);
+    const a = mb.searchArtists("a");
+    await expect(mb.searchArtists("c")).rejects.toThrow(BUSY_MESSAGE);
+    open();
+    await a;
+    await expect(mb.searchArtists("c")).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("cache hits and in-flight joins are never refused", async () => {
+    const { mb, fetchMock, open } = gated(1);
+    const a = mb.searchArtists("a");
+    const joined = mb.searchArtists("a"); // joins the in-flight request
+    open();
+    await Promise.all([a, joined]);
+    await expect(mb.searchArtists("a")).resolves.toEqual([]); // cached
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("defaults to a bounded queue", async () => {
+    const { mb, open } = gated(MAX_QUEUE_LENGTH);
+    const ok = Array.from({ length: MAX_QUEUE_LENGTH }, (_, i) => mb.searchArtists(`q${i}`));
+    await expect(mb.searchArtists("overflow")).rejects.toThrow(BUSY_MESSAGE);
+    open();
+    await Promise.all(ok);
+  });
+});
+
+describe("beforeNetwork hook", () => {
+  it("runs once per request that goes out, not for cache hits or in-flight joins", async () => {
+    const { mb, fetchMock } = setup(() => json({ artists: [] }));
+    const hook = vi.fn();
+    await Promise.all([
+      mb.searchArtists("a", { beforeNetwork: hook }),
+      mb.searchArtists("a", { beforeNetwork: hook }),
+    ]);
+    await mb.searchArtists("a", { beforeNetwork: hook }); // cache hit
+    expect(hook).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await mb.searchArtists("b", { beforeNetwork: hook });
+    expect(hook).toHaveBeenCalledTimes(2);
+  });
+
+  it("a throwing hook blocks the request, is not cached and surfaces its error", async () => {
+    const { mb, fetchMock } = setup(() => json({ artists: [] }));
+    const deny = () => {
+      throw new Error("denied");
+    };
+    await expect(mb.searchArtists("a", { beforeNetwork: deny })).rejects.toThrow("denied");
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(mb.searchArtists("a")).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("works through lookupByUrl and getArtist", async () => {
+    const { mb } = setup(() => json({ id: MBID, name: "A", relations: [] }));
+    const hook = vi.fn();
+    await mb.getArtist(MBID, { beforeNetwork: hook });
+    await mb.lookupByUrl("https://open.spotify.com/artist/abc", { beforeNetwork: hook });
+    expect(hook.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("per-IP rate limit with the mb layer", () => {
+  function limited() {
+    const s = setup(() => json({ artists: [] }));
+    let t = 5_000;
+    const rl = createRateLimiter({ limit: 2, windowMs: 60_000, now: () => t });
+    return { ...s, rl, advance: (ms: number) => (t += ms) };
+  }
+
+  it("enforces the limit on uncached requests only, per IP, with window expiry", async () => {
+    const { mb, fetchMock, rl, advance } = limited();
+    const ctx = (ip: string) => ({ beforeNetwork: limitHook(ip, rl) });
+
+    await mb.searchArtists("a", ctx("1.1.1.1"));
+    await mb.searchArtists("b", ctx("1.1.1.1"));
+    await expect(mb.searchArtists("c", ctx("1.1.1.1"))).rejects.toThrow(RATE_LIMITED_MESSAGE);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // cache hits for the limited IP still work and do not count
+    await expect(mb.searchArtists("a", ctx("1.1.1.1"))).resolves.toEqual([]);
+    await expect(mb.searchArtists("b", ctx("1.1.1.1"))).resolves.toEqual([]);
+
+    // a different IP is independent
+    await expect(mb.searchArtists("c", ctx("2.2.2.2"))).resolves.toEqual([]);
+
+    // after the window the first IP can go out again
+    advance(60_000);
+    await expect(mb.searchArtists("d", ctx("1.1.1.1"))).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
 
