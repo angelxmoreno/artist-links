@@ -117,6 +117,29 @@ describe("viewed artists", () => {
     expect(await cache.listViewed(10)).toEqual([A, B]);
   });
 
+  it("stores the artist name with the id, and null for entries without one", async () => {
+    const cache = createCache();
+    await cache.recordViewed(A, "  Radiohead ");
+    await cache.recordViewed(B); // recorded before names were stored, or without a name
+    expect(await cache.listViewedWithNames(10)).toEqual([
+      { mbid: A, name: "Radiohead" },
+      { mbid: B, name: null },
+    ]);
+    expect(await cache.listViewed(10)).toEqual([A, B]);
+  });
+
+  it("treats a blank name like no name", async () => {
+    const cache = createCache();
+    await cache.recordViewed(A, "   ");
+    expect(await cache.listViewedWithNames(5)).toEqual([{ mbid: A, name: null }]);
+  });
+
+  it("caps the stored name length", async () => {
+    const cache = createCache();
+    await cache.recordViewed(A, "x".repeat(500));
+    expect((await cache.listViewedWithNames(1))[0]?.name).toHaveLength(200);
+  });
+
   it("honours the max and returns nothing for max 0", async () => {
     const cache = createCache();
     await cache.recordViewed(A);
@@ -177,7 +200,7 @@ describe("recordViewedIfLinked", () => {
   it("records an artist that has a link", async () => {
     const recordViewed = vi.fn(async () => {});
     await recordViewedIfLinked(withLink, { recordViewed });
-    expect(recordViewed).toHaveBeenCalledWith(A);
+    expect(recordViewed).toHaveBeenCalledWith(A, "A");
   });
 
   it("skips artists with no relations or only relations without a url", async () => {

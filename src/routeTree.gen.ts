@@ -10,19 +10,45 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as HealthzRouteImport } from './routes/healthz'
+import { Route as HowItWorksRouteImport } from './routes/how-it-works'
+import { Route as PlatformsRouteImport } from './routes/platforms'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ArtistMbidRouteImport } from './routes/artist.$mbid'
+import { Route as ArtistsIndexRouteImport } from './routes/artists.index'
+import { Route as ArtistsLetterRouteImport } from './routes/artists.$letter'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HealthzRoute = HealthzRouteImport.update({
   id: '/healthz',
   path: '/healthz',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HowItWorksRoute = HowItWorksRouteImport.update({
+  id: '/how-it-works',
+  path: '/how-it-works',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformsRoute = PlatformsRouteImport.update({
+  id: '/platforms',
+  path: '/platforms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
@@ -40,49 +66,111 @@ const ArtistMbidRoute = ArtistMbidRouteImport.update({
   path: '/artist/$mbid',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ArtistsIndexRoute = ArtistsIndexRouteImport.update({
+  id: '/artists/',
+  path: '/artists/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtistsLetterRoute = ArtistsLetterRouteImport.update({
+  id: '/artists/$letter',
+  path: '/artists/$letter',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/healthz': typeof HealthzRoute
+  '/how-it-works': typeof HowItWorksRoute
+  '/platforms': typeof PlatformsRoute
+  '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/artist/$mbid': typeof ArtistMbidRoute
+  '/artists/$letter': typeof ArtistsLetterRoute
+  '/artists/': typeof ArtistsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/healthz': typeof HealthzRoute
+  '/how-it-works': typeof HowItWorksRoute
+  '/platforms': typeof PlatformsRoute
+  '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/artist/$mbid': typeof ArtistMbidRoute
+  '/artists/$letter': typeof ArtistsLetterRoute
+  '/artists': typeof ArtistsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/healthz': typeof HealthzRoute
+  '/how-it-works': typeof HowItWorksRoute
+  '/platforms': typeof PlatformsRoute
+  '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/artist/$mbid': typeof ArtistMbidRoute
+  '/artists/$letter': typeof ArtistsLetterRoute
+  '/artists/': typeof ArtistsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/healthz' | '/robots.txt' | '/sitemap.xml' | '/artist/$mbid'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/healthz' | '/robots.txt' | '/sitemap.xml' | '/artist/$mbid'
-  id:
-    | '__root__'
+  fullPaths:
     | '/'
+    | '/about'
     | '/healthz'
+    | '/how-it-works'
+    | '/platforms'
+    | '/privacy'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/artist/$mbid'
+    | '/artists/$letter'
+    | '/artists/'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/about'
+    | '/healthz'
+    | '/how-it-works'
+    | '/platforms'
+    | '/privacy'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/artist/$mbid'
+    | '/artists/$letter'
+    | '/artists'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/healthz'
+    | '/how-it-works'
+    | '/platforms'
+    | '/privacy'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/artist/$mbid'
+    | '/artists/$letter'
+    | '/artists/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   HealthzRoute: typeof HealthzRoute
+  HowItWorksRoute: typeof HowItWorksRoute
+  PlatformsRoute: typeof PlatformsRoute
+  PrivacyRoute: typeof PrivacyRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ArtistMbidRoute: typeof ArtistMbidRoute
+  ArtistsLetterRoute: typeof ArtistsLetterRoute
+  ArtistsIndexRoute: typeof ArtistsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -94,11 +182,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/healthz': {
       id: '/healthz'
       path: '/healthz'
       fullPath: '/healthz'
       preLoaderRoute: typeof HealthzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/how-it-works': {
+      id: '/how-it-works'
+      path: '/how-it-works'
+      fullPath: '/how-it-works'
+      preLoaderRoute: typeof HowItWorksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platforms': {
+      id: '/platforms'
+      path: '/platforms'
+      fullPath: '/platforms'
+      preLoaderRoute: typeof PlatformsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/robots.txt': {
@@ -122,15 +238,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ArtistMbidRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/artists/': {
+      id: '/artists/'
+      path: '/artists'
+      fullPath: '/artists/'
+      preLoaderRoute: typeof ArtistsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artists/$letter': {
+      id: '/artists/$letter'
+      path: '/artists/$letter'
+      fullPath: '/artists/$letter'
+      preLoaderRoute: typeof ArtistsLetterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   HealthzRoute: HealthzRoute,
+  HowItWorksRoute: HowItWorksRoute,
+  PlatformsRoute: PlatformsRoute,
+  PrivacyRoute: PrivacyRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ArtistMbidRoute: ArtistMbidRoute,
+  ArtistsLetterRoute: ArtistsLetterRoute,
+  ArtistsIndexRoute: ArtistsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

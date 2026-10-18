@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GROUPS, artistLinks, classify, type Group } from "./platforms";
+import { GROUPS, PLATFORM_LIST, artistLinks, classify, type Group } from "./platforms";
 import { platformIcon } from "./platform-icons";
 import type { Artist } from "./types";
 
@@ -68,6 +68,25 @@ const CASES: [url: string, platform: string, group: Group][] = [
   ["https://www.residentadvisor.net/dj/x", "Resident Advisor", "Other"],
   ["https://www.ticketmaster.com/x-tickets/artist/1", "Ticketmaster", "Other"],
 ];
+
+describe("PLATFORM_LIST (feeds the /platforms page)", () => {
+  it("has one entry per platform the cases above expect, none twice", () => {
+    const names = PLATFORM_LIST.map((p) => p.name);
+    expect(new Set(names).size).toBe(names.length);
+    for (const [, platform] of CASES) expect(names).toContain(platform);
+  });
+
+  it("gives each platform an example link that is recognised as that platform", () => {
+    for (const p of PLATFORM_LIST) {
+      const url = `https://${p.example.replace(/<[^>]+>/g, "x")}`;
+      expect(classify(url, "other"), p.example).toMatchObject({ platform: p.name, group: p.group });
+    }
+  });
+
+  it("only uses groups that have a section on the artist page", () => {
+    for (const p of PLATFORM_LIST) expect(GROUPS).toContain(p.group);
+  });
+});
 
 describe("classify", () => {
   it.each(CASES)("%s -> %s (%s)", (url, platform, group) => {

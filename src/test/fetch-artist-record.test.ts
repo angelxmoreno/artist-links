@@ -48,6 +48,13 @@ describe("fetchArtist records viewed artists", () => {
     expect(await getAppCache().listViewed(10)).toEqual([MBID]);
   });
 
+  it("stores the artist's name with the id", async () => {
+    getArtist.mockResolvedValue(withLink);
+    await fetchArtist({ data: { mbid: MBID } });
+    await settle();
+    expect(await getAppCache().listViewedWithNames(10)).toEqual([{ mbid: MBID, name: "A" }]);
+  });
+
   it("does not record an artist with zero links", async () => {
     getArtist.mockResolvedValue({ id: MBID, name: "A", relations: [] });
     await fetchArtist({ data: { mbid: MBID } });

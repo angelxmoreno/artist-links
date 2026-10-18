@@ -1,6 +1,6 @@
 // Server-only persisted cache built on keyvhq. One SQLite file (CACHE_DB_PATH) holds two
-// namespaces: "mb" (MusicBrainz responses, TTL'd) and "viewed" (MBIDs of artist pages we
-// served, used by the sitemap). Empty CACHE_DB_PATH, or a file that can't be opened, means
+// namespaces: "mb" (MusicBrainz responses, TTL'd) and "viewed" (MBIDs, plus the artist's name,
+// of artist pages we served, used by the sitemap and the /artists directory). Empty CACHE_DB_PATH, or a file that can't be opened, means
 // a bounded in-memory store instead. Cache problems never reach the visitor: reads that fail
 // count as misses and writes that fail are dropped.
 import { mkdirSync } from "node:fs";
@@ -30,6 +30,14 @@ export interface RawStore {
   clear(namespace?: string): Promise<unknown>;
   iterator(namespace?: string): AsyncGenerator<[string, string]>;
 }
+
+export interface ViewedArtist {
+  mbid: string;
+  name: string | null;
+}
+
+/** Longest artist name we store; MusicBrainz names are far shorter. */
+const MAX_NAME_LENGTH = 200;
 
 export type CacheBackend = "sqlite" | "memory";
 
@@ -124,10 +132,18 @@ export interface AppCache {
   mb: Keyv;
   /** Which store is really in use; resolves once the file was opened (or the fallback chosen). */
   backend(): Promise<CacheBackend>;
-  /** Remember an artist page that was served (fire and forget; never throws). */
-  recordViewed(mbid: string): Promise<void>;
+  /**
+   * Remember an artist page that was served (fire and forget; never throws). The artist's name
+   * is stored with the id so the /artists directory can list it without asking MusicBrainz.
+   */
+  recordViewed(mbid: string, name?: string): Promise<void>;
   /** MBIDs of viewed artists, at most `max`, oldest view first. Empty on error. */
   listViewed(max: number): Promise<string[]>;
+  /**
+   * Like listViewed, with the stored name. `name` is null for entries recorded before names were
+   * stored (their value was just `1`).
+   */
+  listViewedWithNames(max: number): Promise<ViewedArtist[]>;
   /** Delete expired rows. Returns how many were removed. */
   sweep(): Promise<number>;
 }
@@ -199,32 +215,38 @@ export function createCache(opts: CacheOptions = {}): AppCache {
   );
   const recorded = new Map<string, number>(); // mbid -> last write, to avoid a write per page view
 
-  async function recordViewed(mbid: string): Promise<void> {
+  async function recordViewed(mbid: string, name?: string): Promise<void> {
     try {
       const t = Date.now();
       const last = recorded.get(mbid);
       if (last !== undefined && t - last < VIEWED_REWRITE_MS) return;
       if (recorded.size >= SITEMAP_MAX_URLS) recorded.clear();
       recorded.set(mbid, t);
-      await viewed.set(mbid, 1, VIEWED_TTL_MS);
+      // Only the artist's public name is stored with the id: nothing about the visitor.
+      const clean = typeof name === "string" ? name.trim().slice(0, MAX_NAME_LENGTH) : "";
+      await viewed.set(mbid, clean || 1, VIEWED_TTL_MS);
     } catch (e) {
       recorded.delete(mbid);
       warnThrottled("[cache] recording a viewed artist failed", e);
     }
   }
 
-  async function listViewed(max: number): Promise<string[]> {
-    const out: string[] = [];
+  async function listViewedWithNames(max: number): Promise<ViewedArtist[]> {
+    const out: ViewedArtist[] = [];
     try {
       if (max <= 0) return out;
-      for await (const [mbid] of entriesOf(viewed)) {
-        out.push(mbid);
+      for await (const [mbid, value] of entriesOf(viewed)) {
+        out.push({ mbid, name: typeof value === "string" && value ? value : null });
         if (out.length >= max) break;
       }
     } catch (e) {
       warnThrottled("[cache] listing viewed artists failed", e);
     }
     return out;
+  }
+
+  async function listViewed(max: number): Promise<string[]> {
+    return (await listViewedWithNames(max)).map((v) => v.mbid);
   }
 
   // keyvhq deletes expired rows only when they are read again, so old rows would pile up.
@@ -249,7 +271,14 @@ export function createCache(opts: CacheOptions = {}): AppCache {
     return removed;
   }
 
-  return { mb, backend: async () => (await ready).backend, recordViewed, listViewed, sweep };
+  return {
+    mb,
+    backend: async () => (await ready).backend,
+    recordViewed,
+    listViewed,
+    listViewedWithNames,
+    sweep,
+  };
 }
 
 let app: AppCache | undefined;
@@ -279,6 +308,6 @@ export async function recordViewedIfLinked(
   cache: Pick<AppCache, "recordViewed"> = getAppCache(),
 ): Promise<void> {
   if (artistLinks(artist).length === 0) return;
-  await cache.recordViewed(artist.id);
+  await cache.recordViewed(artist.id, artist.name);
 }
 export const listViewedArtists = (max: number) => getAppCache().listViewed(max);

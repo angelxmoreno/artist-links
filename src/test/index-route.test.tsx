@@ -55,7 +55,7 @@ describe("home route", () => {
     mount("/");
     expect(await screen.findByRole("combobox")).toBeInTheDocument();
     expect(screen.getByText(FEATURED[0]!.name)).toBeInTheDocument();
-    expect(screen.getByText(/how it works/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /how it works/i })).toBeInTheDocument();
     expect(screen.queryByText(/recently viewed/i)).not.toBeInTheDocument();
   });
 
