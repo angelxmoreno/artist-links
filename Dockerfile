@@ -6,7 +6,15 @@ COPY package.json bun.lock bunfig.toml ./
 # and its binary is built in the `native` stage below, on the same image that runs it.
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
-RUN bun run build
+# Release name for the source-map upload (same tag as the final stage's APP_VERSION).
+ARG APP_VERSION=unknown
+# Optional: Bugsink base URL for the upload (empty = the default in src/build/sourcemaps.ts).
+ARG SENTRY_URL=
+# The Bugsink token is a BuildKit secret (never an ARG/ENV, so it is not stored in any layer or
+# in the build history). Optional: without it the build skips the upload. Either way no .map
+# file stays in .output.
+RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN \
+    APP_VERSION=$APP_VERSION SENTRY_URL=$SENTRY_URL bun run build
 
 # @vscode/sqlite3 (behind the SQLite cache) has no prebuilt binary, so it is compiled here, on the
 # runtime base image. Compiling in the bun image would link a newer glibc than node:22-slim has.

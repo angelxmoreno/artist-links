@@ -30,5 +30,6 @@ Artist Links: paste a music-artist URL, get all their other links via MusicBrain
 - Deploy: self-hosted Dokploy, linux/amd64, port 3000. Config is runtime env (see `.env.example`); never use `VITE_*` for it.
 - `APP_VERSION` (the deployed tag, shown by `/healthz`) is a Docker build arg turned into a runtime env in the final stage; Dokploy injects nothing, so set it in the app's Build Time Arguments before pushing each tag. Unset = `unknown`.
 - `@vscode/sqlite3` is a native addon: compiled at install (needs python3/make/g++), never bundled. Docker compiles it in the `native` stage on `node:22-slim` (glibc must match the runtime). Single app instance only (SQLite file on a `/data` volume).
+- Source maps: client build emits hidden maps; `src/build/sourcemaps.ts` (wired in `vite.config.ts`) uploads them to Bugsink with sentry-cli (debug IDs) when `SENTRY_AUTH_TOKEN` is set, and always deletes every `.map` so none ships. The token is a Docker build secret (`--mount=type=secret`), never ARG/ENV. Release = `SENTRY_RELEASE` else `APP_VERSION` (`src/lib/release.ts`).
 - Adding a route file requires a build/dev run to regenerate `routeTree.gen.ts`.
 - Git: don't stage/commit/push unless asked.

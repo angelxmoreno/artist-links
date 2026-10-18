@@ -160,11 +160,11 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const { config } = Route.useLoaderData();
-  const { sentryDsn, environment } = config;
+  const { sentryDsn, environment, release } = config;
 
   useEffect(() => {
-    initClientMonitoring(sentryDsn, environment);
-  }, [sentryDsn, environment]);
+    initClientMonitoring(sentryDsn, environment, release);
+  }, [sentryDsn, environment, release]);
 
   return (
     <QueryClientProvider client={queryClient}>

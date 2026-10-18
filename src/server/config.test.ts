@@ -6,6 +6,8 @@ const KEYS = [
   "SITE_URL",
   "SENTRY_DSN",
   "SENTRY_ENVIRONMENT",
+  "SENTRY_RELEASE",
+  "APP_VERSION",
   "UMAMI_SCRIPT_URL",
   "UMAMI_WEBSITE_ID",
 ];
@@ -20,6 +22,7 @@ describe("getPublicConfig", () => {
       siteUrl: null,
       sentryDsn: null,
       environment: "development",
+      release: null,
       umamiScriptUrl: null,
       umamiWebsiteId: null,
       umamiDomains: null,
@@ -32,13 +35,24 @@ describe("getPublicConfig", () => {
     vi.stubEnv("UMAMI_SCRIPT_URL", "https://u.example/script.js");
     vi.stubEnv("UMAMI_WEBSITE_ID", "abc");
     vi.stubEnv("SENTRY_ENVIRONMENT", "staging");
+    vi.stubEnv("APP_VERSION", "v0.0.6");
     expect(getPublicConfig()).toEqual({
       siteUrl: "https://links.example.com",
       sentryDsn: "https://k@bug.example/1",
       environment: "staging",
+      release: "v0.0.6",
       umamiScriptUrl: "https://u.example/script.js",
       umamiWebsiteId: "abc",
       umamiDomains: "links.example.com",
     });
+  });
+
+  it("prefers SENTRY_RELEASE over APP_VERSION and ignores the unknown placeholder", () => {
+    vi.stubEnv("APP_VERSION", "v0.0.6");
+    vi.stubEnv("SENTRY_RELEASE", "custom");
+    expect(getPublicConfig().release).toBe("custom");
+    vi.stubEnv("SENTRY_RELEASE", "");
+    vi.stubEnv("APP_VERSION", "unknown");
+    expect(getPublicConfig().release).toBeNull();
   });
 });

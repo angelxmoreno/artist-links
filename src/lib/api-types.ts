@@ -10,6 +10,8 @@ export interface PublicConfig {
   sentryDsn: string | null;
   /** Sentry/Bugsink environment tag: SENTRY_ENVIRONMENT, else NODE_ENV (development, production). */
   environment: string;
+  /** Release sent with browser and server errors: SENTRY_RELEASE, else APP_VERSION; null if neither. */
+  release: string | null;
   umamiScriptUrl: string | null;
   umamiWebsiteId: string | null;
   /** Hostname Umami should record, taken from SITE_URL so dev/preview traffic is ignored. */
