@@ -8,10 +8,15 @@ import {
 } from "@tanstack/react-router";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ArtistPhoto } from "@/lib/api-types";
 import type { Artist } from "@/lib/types";
 
 const fetchArtist = vi.fn();
-vi.mock("@/lib/api", () => ({ fetchArtist: (...a: unknown[]) => fetchArtist(...a) }));
+const fetchArtistPhoto = vi.fn();
+vi.mock("@/lib/api", () => ({
+  fetchArtist: (...a: unknown[]) => fetchArtist(...a),
+  fetchArtistPhoto: (...a: unknown[]) => fetchArtistPhoto(...a),
+}));
 
 import { Route, artistDescription, artistHead, artistJsonLd } from "@/routes/artist.$mbid";
 
@@ -33,6 +38,7 @@ const radiohead: Artist = {
 afterEach(() => {
   cleanup();
   fetchArtist.mockReset();
+  fetchArtistPhoto.mockReset();
 });
 
 describe("artist head", () => {
@@ -71,6 +77,48 @@ describe("artist head", () => {
   });
 });
 
+const photo: ArtistPhoto = {
+  thumbUrl: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/R.jpg/250px-R.jpg",
+  ogUrl: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a1/R.jpg/1280px-R.jpg",
+  pageUrl: "https://commons.wikimedia.org/wiki/File:R.jpg",
+  ogWidth: 1280,
+  ogHeight: 465,
+};
+const withWikidata: Artist = {
+  ...radiohead,
+  relations: [
+    ...(radiohead.relations ?? []),
+    { type: "wikidata", url: { resource: "https://www.wikidata.org/wiki/Q44190" } },
+  ],
+};
+
+describe("artist head with a photo", () => {
+  const keys = (meta: Record<string, unknown>[]) =>
+    meta.flatMap((m) => [m["property"], m["name"]]).filter(Boolean);
+
+  it("emits per-artist og:image (with size), twitter:image and JSON-LD image", () => {
+    const head = artistHead(radiohead, "https://links.example", `/artist/${MBID}`, photo);
+    expect(head.meta).toContainEqual({ property: "og:image", content: photo.ogUrl });
+    expect(head.meta).toContainEqual({ property: "og:image:width", content: "1280" });
+    expect(head.meta).toContainEqual({ property: "og:image:height", content: "465" });
+    expect(head.meta).toContainEqual({ name: "twitter:image", content: photo.ogUrl });
+    const ld = head.meta.find((m) => "script:ld+json" in m) as {
+      "script:ld+json": Record<string, unknown>;
+    };
+    expect(ld["script:ld+json"]["image"]).toBe(photo.ogUrl);
+    // each key once within this route's own tags
+    const k = keys(head.meta as Record<string, unknown>[]);
+    expect(new Set(k).size).toBe(k.length);
+  });
+
+  it.each([undefined, null])("emits no image tags when the photo is %s", (value) => {
+    const head = artistHead(radiohead, "https://links.example", `/artist/${MBID}`, value);
+    const k = keys(head.meta as Record<string, unknown>[]);
+    expect(k.filter((x) => String(x).includes("image"))).toEqual([]);
+    expect(artistJsonLd(radiohead, null, value)).not.toHaveProperty("image");
+  });
+});
+
 function mount(path: string) {
   const root = createRootRouteWithContext<{ queryClient: QueryClient }>()({ component: Outlet });
   const artistRoute = Route.update({
@@ -94,6 +142,36 @@ describe("artist route component", () => {
     expect(fetchArtist).toHaveBeenCalledWith({ data: { mbid: MBID } });
     expect(screen.getByRole("link", { name: "Artist Links" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "MusicBrainz" })).toBeInTheDocument();
+  });
+
+  it("renders the photo from the loader and credits Commons", async () => {
+    fetchArtist.mockResolvedValue(withWikidata);
+    fetchArtistPhoto.mockResolvedValue(photo);
+    mount(`/artist/${MBID}`);
+    expect(await screen.findByRole("img", { name: "Radiohead" })).toHaveAttribute(
+      "src",
+      photo.thumbUrl,
+    );
+    expect(fetchArtistPhoto).toHaveBeenCalledWith({ data: { mbid: MBID } });
+    expect(screen.getByRole("link", { name: "Photo via Wikimedia Commons" })).toHaveAttribute(
+      "href",
+      photo.pageUrl,
+    );
+  });
+
+  it("still renders the page when the photo lookup fails", async () => {
+    fetchArtist.mockResolvedValue(withWikidata);
+    fetchArtistPhoto.mockRejectedValue(new Error("boom"));
+    mount(`/artist/${MBID}`);
+    expect(await screen.findByRole("heading", { name: "Radiohead" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "Radiohead" })).not.toBeInTheDocument();
+  });
+
+  it("does not look for a photo when the artist has no Wikidata link", async () => {
+    fetchArtist.mockResolvedValue(radiohead);
+    mount(`/artist/${MBID}`);
+    expect(await screen.findByRole("heading", { name: "Radiohead" })).toBeInTheDocument();
+    expect(fetchArtistPhoto).not.toHaveBeenCalled();
   });
 
   it("shows the not-found state when the artist does not exist", async () => {

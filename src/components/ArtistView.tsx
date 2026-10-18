@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy, ExternalLink, Music2, Users, BookOpen, Globe, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { artistLinks, GROUPS, type Group, type LinkItem } from "@/lib/platforms";
 import { shortUrl } from "@/lib/format";
 import { platformIcon } from "@/lib/platform-icons";
+import type { ArtistPhoto } from "@/lib/api-types";
 import type { Artist } from "@/lib/types";
 import { Notice } from "./Notice";
 import { track } from "@/lib/analytics";
@@ -20,9 +21,25 @@ function copy(text: string, what = "Copied") {
   navigator.clipboard.writeText(text).then(() => toast.success(what));
 }
 
-export function ArtistView({ artist }: { artist: Artist }) {
+export function ArtistView({
+  artist,
+  photo,
+}: {
+  artist: Artist;
+  photo?: ArtistPhoto | null | undefined;
+}) {
   const links = artistLinks(artist);
   const [copied, setCopied] = useState(false);
+  // If the photo can't be loaded, photo and caption both go, so the header looks like it does
+  // for an artist without a photo.
+  const [photoBroken, setPhotoBroken] = useState(false);
+  const photoRef = useRef<HTMLImageElement>(null);
+  // A load error that fired before hydration never reached onError; catch it here.
+  useEffect(() => {
+    const el = photoRef.current;
+    if (el?.complete && el.naturalWidth === 0) setPhotoBroken(true);
+  }, [photo]);
+  const shownPhoto = photo && !photoBroken ? photo : null;
   // Artist name/id + platform, never the pasted URL. Umami can break platforms down per artist.
   const trackLink = (l: LinkItem) =>
     track("link_click", {
@@ -34,11 +51,36 @@ export function ArtistView({ artist }: { artist: Artist }) {
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="font-display text-3xl tracking-tight">{artist.name}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {[artist.type, artist.country, artist.disambiguation].filter(Boolean).join(" · ")}
-          </p>
+        <div className="flex min-w-0 items-center gap-4">
+          {shownPhoto && (
+            <img
+              ref={photoRef}
+              src={shownPhoto.thumbUrl}
+              alt={artist.name}
+              width={80}
+              height={80}
+              onError={() => setPhotoBroken(true)}
+              className="size-20 shrink-0 rounded-xl bg-accent object-cover"
+            />
+          )}
+          <div className="min-w-0">
+            <h2 className="font-display text-3xl tracking-tight">{artist.name}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {[artist.type, artist.country, artist.disambiguation].filter(Boolean).join(" · ")}
+            </p>
+            {shownPhoto && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                <a
+                  href={shownPhoto.pageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-foreground"
+                >
+                  Photo via Wikimedia Commons
+                </a>
+              </p>
+            )}
+          </div>
         </div>
         {links.length > 0 && (
           <button

@@ -18,4 +18,17 @@ export interface PublicConfig {
   umamiDomains: string | null;
 }
 
+/** An artist photo from Wikimedia Commons (via Wikidata P18), with ready-to-use URLs. */
+export interface ArtistPhoto {
+  /** Small image for the page header (about 250px wide). */
+  thumbUrl: string;
+  /** Direct, absolute image URL for og:image (about 1200px wide). */
+  ogUrl: string;
+  /** The file's page on Commons: author and license live there. */
+  pageUrl: string;
+  /** Pixel size of the image at `ogUrl`. */
+  ogWidth: number;
+  ogHeight: number;
+}
+
 export type { Artist };

@@ -6,7 +6,8 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { fetchArtist } from "@/lib/api";
+import { fetchArtist, fetchArtistPhoto } from "@/lib/api";
+import type { ArtistPhoto } from "@/lib/api-types";
 import { artistLinks } from "@/lib/platforms";
 import type { Artist } from "@/lib/types";
 import { ArtistView } from "@/components/ArtistView";
@@ -33,7 +34,11 @@ export function artistDescription(artist: Artist): string {
 }
 
 /** schema.org structured data; `sameAs` lists the artist's own profile links. */
-export function artistJsonLd(artist: Artist, url: string | null): Record<string, unknown> {
+export function artistJsonLd(
+  artist: Artist,
+  url: string | null,
+  photo?: ArtistPhoto | null,
+): Record<string, unknown> {
   const sameAs = artistLinks(artist)
     .map((l) => l.url)
     .filter((u) => /^https?:\/\//i.test(u));
@@ -42,12 +47,18 @@ export function artistJsonLd(artist: Artist, url: string | null): Record<string,
     "@type": artist.type === "Person" ? "Person" : "MusicGroup",
     name: artist.name,
     ...(url ? { url } : {}),
+    ...(photo ? { image: photo.ogUrl } : {}),
     ...(artist.disambiguation ? { description: artist.disambiguation } : {}),
     ...(sameAs.length ? { sameAs } : {}),
   };
 }
 
-export function artistHead(artist: Artist, origin: string | null, pathname: string) {
+export function artistHead(
+  artist: Artist,
+  origin: string | null,
+  pathname: string,
+  photo?: ArtistPhoto | null,
+) {
   const title = artistTitle(artist);
   const description = artistDescription(artist);
   const url = origin ? `${origin}${pathname}` : null;
@@ -59,7 +70,19 @@ export function artistHead(artist: Artist, origin: string | null, pathname: stri
       { property: "og:description", content: description },
       { property: "og:type", content: "website" },
       ...(url ? [{ property: "og:url", content: url }] : []),
-      { "script:ld+json": artistJsonLd(artist, url) },
+      // The root route sets default og:image/twitter:image (and a 1200x630 size). TanStack keeps
+      // the deepest route's tag per name/property, so these replace the defaults. The size is
+      // always sent with the image so the default 1200x630 never describes the wrong picture.
+      ...(photo
+        ? [
+            { property: "og:image", content: photo.ogUrl },
+            { property: "og:image:width", content: String(photo.ogWidth) },
+            { property: "og:image:height", content: String(photo.ogHeight) },
+            { property: "og:image:alt", content: `Photo of ${artist.name}` },
+            { name: "twitter:image", content: photo.ogUrl },
+          ]
+        : []),
+      { "script:ld+json": artistJsonLd(artist, url, photo) },
     ],
     links: url ? [{ rel: "canonical", href: url }] : [],
   };
@@ -69,14 +92,24 @@ export const Route = createFileRoute("/artist/$mbid")({
   loader: async ({ params }) => {
     const artist = await fetchArtist({ data: { mbid: params.mbid } });
     if (!artist) throw notFound();
-    return { artist };
+    // Only artists with a Wikidata link can have a photo; the lookup can't fail the page.
+    const hasWikidata = artist.relations?.some((r) => r.type === "wikidata") ?? false;
+    const photo = hasWikidata
+      ? await fetchArtistPhoto({ data: { mbid: params.mbid } }).catch(() => null)
+      : null;
+    return { artist, photo };
   },
   head: ({ loaderData, match, matches }) => {
     if (!loaderData) return {};
     // Root loader exposes the site origin (SITE_URL or the request origin).
     const root = matches.find((m) => (m.routeId as string) === "__root__");
     const rootData = root?.loaderData as { origin?: string | null } | undefined;
-    return artistHead(loaderData.artist, rootData?.origin ?? null, match.pathname);
+    return artistHead(
+      loaderData.artist,
+      rootData?.origin ?? null,
+      match.pathname,
+      loaderData.photo,
+    );
   },
   pendingComponent: () => (
     <SiteShell>
@@ -89,7 +122,7 @@ export const Route = createFileRoute("/artist/$mbid")({
 });
 
 function ArtistPage() {
-  const { artist } = Route.useLoaderData();
+  const { artist, photo } = Route.useLoaderData();
   const { add } = useRecent();
   useEffect(() => {
     const subtitle = [artist.type, artist.country].filter(Boolean).join(" · ");
@@ -98,7 +131,7 @@ function ArtistPage() {
   }, [artist, add]);
   return (
     <SiteShell>
-      <ArtistView artist={artist} />
+      <ArtistView artist={artist} photo={photo} />
     </SiteShell>
   );
 }

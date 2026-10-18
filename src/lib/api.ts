@@ -3,7 +3,7 @@
 // up in the client bundle.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { Artist, LookupResult } from "./api-types";
+import type { Artist, ArtistPhoto, LookupResult } from "./api-types";
 
 const SAFE_FALLBACK = "Couldn't reach MusicBrainz. Check your connection or try again in a moment.";
 
@@ -61,6 +61,24 @@ export const fetchArtist = createServerFn({ method: "GET" })
       return artist;
     }),
   );
+
+// The artist's Commons photo for the header and og:image. Never fails the page: any problem
+// (unknown artist, Wikidata or Commons down or slow) just means "no photo". The artist comes from
+// the MusicBrainz cache that fetchArtist filled a moment ago, so this normally costs no MB request.
+export const fetchArtistPhoto = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ mbid: z.string().max(64) }))
+  .handler(async ({ data }): Promise<ArtistPhoto | null> => {
+    try {
+      return await run(async (mb, ctx) => {
+        const artist = await mb.getArtist(data.mbid, ctx);
+        if (!artist) return null;
+        const { getArtistPhoto } = await import("../server/image.server");
+        return getArtistPhoto(artist);
+      });
+    } catch {
+      return null;
+    }
+  });
 
 export const searchByName = createServerFn({ method: "GET" })
   .inputValidator(z.object({ q: z.string().max(500) }))

@@ -2,6 +2,8 @@
 
 Paste one link to a music artist (Spotify, Instagram, Bandcamp, official site, …) or search by name, and get all their other links, grouped by Streaming, Social, Reference, Official website and Other. Data comes from the public [MusicBrainz](https://musicbrainz.org) API, fetched server-side (1 request/second queue, 24h cache that survives restarts when a SQLite file is configured, Featured artists pre-warmed at boot). Each artist has a server-rendered, shareable page at `/artist/<mbid>`; the homepage shows a curated Featured list (`src/data/featured.ts`) and the visitor's recently viewed artists (localStorage).
 
+Artist photos come from [Wikimedia Commons](https://commons.wikimedia.org): the artist's MusicBrainz Wikidata link gives the Wikidata `P18` image, which is shown in the artist header (captioned "Photo via Wikimedia Commons", linking to the file page with author and license) and used for `og:image`/`twitter:image` (falls back to `og.png`). The lookup runs on the server with a 2.5s limit and is cached in the same cache as MusicBrainz data (7 days for a photo, 1 day for "no photo", failures not cached); visitors' browsers load the small header image from Wikimedia.
+
 ## Stack
 
 TanStack Start (React 19, file-based routing in `src/routes`, server functions in `src/lib/api.ts`), Tailwind CSS 4, shadcn/ui (Radix), Vite 8, Nitro, Bun, Vitest. Monitoring: Sentry SDKs pointed at Bugsink. Analytics: Umami.
