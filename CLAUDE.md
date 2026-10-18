@@ -26,6 +26,6 @@ Artist Links: paste a music-artist URL, get all their other links via MusicBrain
 
 - `vite.config.ts` is a plain Vite config: Tailwind, tsconfig paths, TanStack Start (entry `src/server.ts`, client import protection for `src/server/**`), Nitro `node-server` preset on build, React. The Nitro/Node preset is the only deploy target.
 - `bunfig.toml` enforces a 24h `minimumReleaseAge`; don't add excludes without asking.
-- Deploy: self-hosted Dokploy, linux/amd64, port 3000. Config is runtime env (see `.env.example`); never use `VITE_*` for it. Never log or send the user's pasted URL to analytics/Sentry.
+- Deploy: self-hosted Dokploy, linux/amd64, port 3000. Config is runtime env (see `.env.example`); never use `VITE_*` for it.
 - Adding a route file requires a build/dev run to regenerate `routeTree.gen.ts`.
 - Git: don't stage/commit/push unless asked.
