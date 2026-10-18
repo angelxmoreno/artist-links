@@ -29,10 +29,10 @@ Copy `.env.example` to `.env`. Everything is optional; empty means the feature i
 | `SITE_URL`                              | Base URL for canonical/OG/sitemap; empty = request origin        |
 | `SENTRY_DSN`                            | Bugsink DSN for server and browser errors                        |
 | `SENTRY_ENVIRONMENT`                    | Environment tag in Bugsink (empty = `NODE_ENV`)                  |
-| `SENTRY_RELEASE`                        | Release tag for errors (empty = `APP_VERSION`, none if unknown)  |
+| `SENTRY_RELEASE`                        | Release tag for errors (empty = the deployed version)            |
 | `UMAMI_SCRIPT_URL` / `UMAMI_WEBSITE_ID` | Umami analytics script and site ID                               |
 | `CACHE_DB_PATH`                         | SQLite file for the persisted cache; empty = memory only         |
-| `APP_VERSION`                           | Deployed tag shown by `/healthz` (build arg, see Deploy below)   |
+| `APP_VERSION`                           | Optional override of the version shown by `/healthz`             |
 
 ## Self-hosted deploy (Docker / Dokploy)
 
@@ -81,16 +81,23 @@ The SQLite driver (`@vscode/sqlite3`) is a native addon with no prebuilt binary,
 
 `GET /healthz` returns `{ "status": "ok", "version": "v0.0.5" }` (`Cache-Control: no-store`, no MusicBrainz calls). The Docker `HEALTHCHECK` uses it, and you can curl it after a deploy to confirm which tag is live.
 
-The version comes from `APP_VERSION`, a Docker build arg (`ARG APP_VERSION=unknown`) that the Dockerfile copies into the runtime env. Dokploy does not inject the git tag, branch or commit into Dockerfile builds, so set it by hand each release:
+The version is the `version` in `package.json`, shown as a tag (`0.0.6` becomes `v0.0.6`) and compiled into the build. Dokploy does not pass the git tag to Dockerfile builds, so the tag and `package.json` are kept in step by the release script instead of by a setting in Dokploy.
 
-1. In the app's **Environment** tab, under **Build Time Arguments**, set `APP_VERSION=v0.0.6` (one `KEY=value` per line).
-2. Then push the tag (tag-triggered deploys start as soon as the tag arrives, so the argument must already be updated).
+### Releasing
 
-If you forget, `/healthz` reports `"version": "unknown"`. Locally: `docker build --build-arg APP_VERSION=v0.0.6 .` or `APP_VERSION=v0.0.6 node .output/server/index.mjs`.
+From a clean, up-to-date `main` with green CI:
+
+```sh
+bun run release patch   # or minor / major
+```
+
+It bumps `package.json`, commits `chore: release vX.Y.Z`, creates the matching tag, and asks before pushing `main` and the tag. **Pushing the tag starts the Dokploy deploy.** If you answer no, nothing is pushed (undo with `git tag -d vX.Y.Z && git reset --hard HEAD~1`).
+
+`APP_VERSION` (a build arg, or a runtime env var) still works as an override, for example `docker build --build-arg APP_VERSION=v0.0.6 .`.
 
 ### Source maps and releases in Bugsink
 
-Errors carry a `release` (server and browser): `SENTRY_RELEASE` if set, otherwise `APP_VERSION` (the tag), otherwise none. The browser gets it at runtime through the public config, so nothing is baked into the bundle.
+Errors carry a `release` (server and browser): `SENTRY_RELEASE` if set, otherwise the deployed version above. The browser gets it at runtime through the public config, so nothing is baked into the bundle.
 
 To make browser stack traces readable, `bun run build` emits hidden source maps (no `sourceMappingURL` in the bundles), and right after the browser bundle is written (`src/build/sourcemaps.ts`, wired in `vite.config.ts`) it runs `sentry-cli sourcemaps inject` + `upload` against Bugsink. **Every `.map` file is deleted afterwards, whether or not the upload ran**, so none is ever served or shipped in the image. Bugsink matches maps to events by the debug ID that `inject` writes into each bundle, not by release name or URL. It needs Bugsink 2.0.14 or newer and `sentry-cli` 2.x (pinned as a devDependency).
 
@@ -102,14 +109,13 @@ The upload only happens when a token is available. Without one (local dev, CI, f
 
 | Field                | Name / value                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------ |
-| Build Time Arguments | `APP_VERSION=v0.0.6` (the tag; update every release, see above)                                        |
 | Build-time Secrets   | `SENTRY_AUTH_TOKEN=<token from Bugsink>` (the name must be exactly this: it is the BuildKit secret id) |
 | Build Time Arguments | optional `SENTRY_URL=https://...` if Bugsink is not at the default `https://bugsink.2719.fyi`          |
 
 Do not put the token in Build Time Arguments or in the runtime Environment: those persist in the image. The Dockerfile reads it only through `RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN`, so it is not stored in any layer or in `docker history`. Locally:
 
 ```sh
-SENTRY_AUTH_TOKEN=... docker build --build-arg APP_VERSION=v0.0.6 \
+SENTRY_AUTH_TOKEN=... docker build \
   --secret id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN .
 ```
 

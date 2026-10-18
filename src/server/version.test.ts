@@ -1,24 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { version as packageVersion } from "../../package.json";
 import { getVersion } from "./version";
 
 afterEach(() => vi.unstubAllEnvs());
 
 describe("getVersion", () => {
-  it("returns the trimmed APP_VERSION", () => {
+  it("returns the trimmed APP_VERSION override", () => {
     vi.stubEnv("APP_VERSION", "  v1.2.3\n");
     expect(getVersion()).toBe("v1.2.3");
   });
 
-  it("falls back to unknown when empty or blank", () => {
-    vi.stubEnv("APP_VERSION", "");
-    expect(getVersion()).toBe("unknown");
-    vi.stubEnv("APP_VERSION", "   ");
-    expect(getVersion()).toBe("unknown");
-  });
-
-  it("falls back to unknown when unset", () => {
-    vi.stubEnv("APP_VERSION", undefined);
-    expect(getVersion()).toBe("unknown");
+  it("falls back to the package.json version when empty, blank, unknown or unset", () => {
+    for (const value of ["", "   ", "unknown", undefined]) {
+      vi.stubEnv("APP_VERSION", value);
+      expect(getVersion()).toBe(`v${packageVersion}`);
+    }
   });
 });

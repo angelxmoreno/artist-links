@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { version as packageVersion } from "../../package.json";
 import { getPublicConfig } from "./config";
 
 const KEYS = [
@@ -22,7 +23,7 @@ describe("getPublicConfig", () => {
       siteUrl: null,
       sentryDsn: null,
       environment: "development",
-      release: null,
+      release: `v${packageVersion}`,
       umamiScriptUrl: null,
       umamiWebsiteId: null,
       umamiDomains: null,
@@ -47,12 +48,13 @@ describe("getPublicConfig", () => {
     });
   });
 
-  it("prefers SENTRY_RELEASE over APP_VERSION and ignores the unknown placeholder", () => {
+  it("prefers SENTRY_RELEASE, then APP_VERSION, then the package.json version", () => {
     vi.stubEnv("APP_VERSION", "v0.0.6");
     vi.stubEnv("SENTRY_RELEASE", "custom");
     expect(getPublicConfig().release).toBe("custom");
     vi.stubEnv("SENTRY_RELEASE", "");
+    expect(getPublicConfig().release).toBe("v0.0.6");
     vi.stubEnv("APP_VERSION", "unknown");
-    expect(getPublicConfig().release).toBeNull();
+    expect(getPublicConfig().release).toBe(`v${packageVersion}`);
   });
 });

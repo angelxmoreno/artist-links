@@ -1,5 +1,6 @@
 {
   "name": "tanstack_start_ts",
+  "version": "0.0.5",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -11,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release": "bash scripts/release.sh"
   },
   "overrides": {
     "rolldown": "1.2.1"

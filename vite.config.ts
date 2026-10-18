@@ -7,7 +7,8 @@ import { resolve } from "node:path";
 import tsConfigPaths from "vite-tsconfig-paths";
 
 import { processSourcemaps } from "./src/build/sourcemaps";
-import { resolveRelease } from "./src/lib/release";
+import { version as packageVersion } from "./package.json";
+import { resolveRelease, resolveVersion } from "./src/lib/release";
 
 // Runs right after the browser bundle is written and before Nitro scans its public dir (so
 // deleted maps never enter Nitro's asset manifest): uploads the source maps to Bugsink when
@@ -26,7 +27,10 @@ function bugsinkSourcemaps(): Plugin {
         url: env["SENTRY_URL"]?.trim(),
         org: env["SENTRY_ORG"]?.trim(),
         project: env["SENTRY_PROJECT"]?.trim(),
-        release: resolveRelease(env["SENTRY_RELEASE"], env["APP_VERSION"]),
+        release: resolveRelease(
+          env["SENTRY_RELEASE"],
+          resolveVersion(env["APP_VERSION"], packageVersion),
+        ),
       });
     },
   };

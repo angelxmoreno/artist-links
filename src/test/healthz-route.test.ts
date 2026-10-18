@@ -1,3 +1,4 @@
+import { version as packageVersion } from "../../package.json";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Route } from "@/routes/healthz";
@@ -22,8 +23,11 @@ describe("GET /healthz", () => {
     expect(await res.json()).toEqual({ status: "ok", version: "v9.9.9" });
   });
 
-  it("reports unknown when APP_VERSION is unset", async () => {
+  it("falls back to the package.json version when APP_VERSION is unset", async () => {
     vi.stubEnv("APP_VERSION", "");
-    expect(await (await get()).json()).toEqual({ status: "ok", version: "unknown" });
+    expect(await (await get()).json()).toEqual({
+      status: "ok",
+      version: `v${packageVersion}`,
+    });
   });
 });

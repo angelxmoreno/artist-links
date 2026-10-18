@@ -6,8 +6,8 @@ COPY package.json bun.lock bunfig.toml ./
 # and its binary is built in the `native` stage below, on the same image that runs it.
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY . .
-# Release name for the source-map upload (same tag as the final stage's APP_VERSION).
-ARG APP_VERSION=unknown
+# Optional override of the release name (default: the package.json version, see src/lib/release.ts).
+ARG APP_VERSION=
 # Optional: Bugsink base URL for the upload (empty = the default in src/build/sourcemaps.ts).
 ARG SENTRY_URL=
 # The Bugsink token is a BuildKit secret (never an ARG/ENV, so it is not stored in any layer or
@@ -32,8 +32,8 @@ RUN --mount=type=bind,from=build,source=/app/node_modules,target=/nm \
     node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild
 
 FROM node:22-slim
-# Deployed tag, reported by /healthz. Pass with --build-arg APP_VERSION=<tag>.
-ARG APP_VERSION=unknown
+# Optional override of the version reported by /healthz (default: the package.json version).
+ARG APP_VERSION=
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 APP_VERSION=$APP_VERSION
 WORKDIR /app
 # .output bundles the JS deps. The one native addon (@vscode/sqlite3) can't be bundled: Nitro

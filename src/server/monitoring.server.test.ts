@@ -1,3 +1,4 @@
+import { version as packageVersion } from "../../package.json";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const init = vi.fn();
@@ -32,12 +33,12 @@ describe("server monitoring release", () => {
     expect(init.mock.calls[0]![0]).toMatchObject({ release: "custom" });
   });
 
-  it("sends no release when neither is set", async () => {
+  it("falls back to the package.json version when neither is set", async () => {
     vi.stubEnv("SENTRY_DSN", "https://k@bug.example/1");
     vi.stubEnv("SENTRY_RELEASE", "");
     vi.stubEnv("APP_VERSION", "");
     const { initServerMonitoring } = await import("./monitoring.server");
     await initServerMonitoring();
-    expect(init.mock.calls[0]![0].release).toBeUndefined();
+    expect(init.mock.calls[0]![0].release).toBe(`v${packageVersion}`);
   });
 });
