@@ -28,6 +28,7 @@ Copy `.env.example` to `.env`. Everything is optional; empty means the feature i
 | `SENTRY_DSN`                            | Bugsink DSN for server and browser errors                        |
 | `SENTRY_ENVIRONMENT`                    | Environment tag in Bugsink (empty = `NODE_ENV`)                  |
 | `UMAMI_SCRIPT_URL` / `UMAMI_WEBSITE_ID` | Umami analytics script and site ID                               |
+| `APP_VERSION`                           | Deployed tag shown by `/healthz` (build arg, see Deploy below)   |
 
 ## Self-hosted deploy (Docker / Dokploy)
 
@@ -51,3 +52,14 @@ HOST=0.0.0.0 PORT=3000 node .output/server/index.mjs
 ```
 
 In Dokploy, use the Dockerfile build type and container port 3000. Env vars are optional (see Configuration). CI (`.github/workflows/ci.yml`) runs lint, tests, build and a Docker build.
+
+### Health check and deployed version
+
+`GET /healthz` returns `{ "status": "ok", "version": "v0.0.5" }` (`Cache-Control: no-store`, no MusicBrainz calls). The Docker `HEALTHCHECK` uses it, and you can curl it after a deploy to confirm which tag is live.
+
+The version comes from `APP_VERSION`, a Docker build arg (`ARG APP_VERSION=unknown`) that the Dockerfile copies into the runtime env. Dokploy does not inject the git tag, branch or commit into Dockerfile builds, so set it by hand each release:
+
+1. In the app's **Environment** tab, under **Build Time Arguments**, set `APP_VERSION=v0.0.6` (one `KEY=value` per line).
+2. Then push the tag (tag-triggered deploys start as soon as the tag arrives, so the argument must already be updated).
+
+If you forget, `/healthz` reports `"version": "unknown"`. Locally: `docker build --build-arg APP_VERSION=v0.0.6 .` or `APP_VERSION=v0.0.6 node .output/server/index.mjs`.

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as HealthzRouteImport } from './routes/healthz'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ArtistMbidRouteImport } from './routes/artist.$mbid'
@@ -17,6 +18,11 @@ import { Route as ArtistMbidRouteImport } from './routes/artist.$mbid'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthzRoute = HealthzRouteImport.update({
+  id: '/healthz',
+  path: '/healthz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
@@ -37,12 +43,14 @@ const ArtistMbidRoute = ArtistMbidRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/healthz': typeof HealthzRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/artist/$mbid': typeof ArtistMbidRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/healthz': typeof HealthzRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/artist/$mbid': typeof ArtistMbidRoute
@@ -50,20 +58,28 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/healthz': typeof HealthzRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/artist/$mbid': typeof ArtistMbidRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/robots.txt' | '/sitemap.xml' | '/artist/$mbid'
+  fullPaths: '/' | '/healthz' | '/robots.txt' | '/sitemap.xml' | '/artist/$mbid'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/robots.txt' | '/sitemap.xml' | '/artist/$mbid'
-  id: '__root__' | '/' | '/robots.txt' | '/sitemap.xml' | '/artist/$mbid'
+  to: '/' | '/healthz' | '/robots.txt' | '/sitemap.xml' | '/artist/$mbid'
+  id:
+    | '__root__'
+    | '/'
+    | '/healthz'
+    | '/robots.txt'
+    | '/sitemap.xml'
+    | '/artist/$mbid'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  HealthzRoute: typeof HealthzRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ArtistMbidRoute: typeof ArtistMbidRoute
@@ -76,6 +92,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/healthz': {
+      id: '/healthz'
+      path: '/healthz'
+      fullPath: '/healthz'
+      preLoaderRoute: typeof HealthzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/robots.txt': {
@@ -104,6 +127,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  HealthzRoute: HealthzRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ArtistMbidRoute: ArtistMbidRoute,

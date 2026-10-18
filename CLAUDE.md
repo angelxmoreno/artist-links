@@ -11,7 +11,7 @@ Artist Links: paste a music-artist URL, get all their other links via MusicBrain
 
 ## Layout
 
-- `src/routes/` — file-based routes: `__root.tsx` (head/meta, runtime config via `getRootData`), `index.tsx` (home: SearchBox, Recent, Featured, Hero), `artist.$mbid.tsx` (SSR artist page, per-artist meta + JSON-LD), `sitemap[.]xml.ts`, `robots[.]txt.ts`. `src/routeTree.gen.ts` is generated; don't edit.
+- `src/routes/` — file-based routes: `__root.tsx` (head/meta, runtime config via `getRootData`), `index.tsx` (home: SearchBox, Recent, Featured, Hero), `artist.$mbid.tsx` (SSR artist page, per-artist meta + JSON-LD), `sitemap[.]xml.ts`, `robots[.]txt.ts`, `healthz.ts` (JSON `{status, version}`, used by the Docker HEALTHCHECK; version from `src/server/version.ts`). `src/routeTree.gen.ts` is generated; don't edit.
 - `src/lib/api.ts` — server functions (`lookupByUrl`, `fetchArtist`, `searchByName`); `src/server/musicbrainz.server.ts` — MusicBrainz client with User-Agent, 1 req/s queue, TTL/LRU cache. Server-only code lives in `src/server/` and is imported dynamically inside handlers.
 - `src/lib/links.ts` (URL normalize), `platforms.ts` (host → platform/group), `platform-icons.ts`, `types.ts`, `api-types.ts` (server/UI contract), `looks-like-url.ts`, `analytics.ts` (Umami `track`), `monitoring.ts` (browser Sentry), `root-data.ts`.
 - `src/server/monitoring.server.ts` (Sentry node, tag `runtime=server`; browser uses `runtime=browser`), `config.ts` (public runtime config from env), `origin.ts`, `nitro-plugin.ts` + `warm.server.ts` (boot-time cache warm-up of Featured artists, via the app's own fetch because Nitro bundles plugins separately).
@@ -27,5 +27,6 @@ Artist Links: paste a music-artist URL, get all their other links via MusicBrain
 - `vite.config.ts` is a plain Vite config: Tailwind, tsconfig paths, TanStack Start (entry `src/server.ts`, client import protection for `src/server/**`), Nitro `node-server` preset on build, React. The Nitro/Node preset is the only deploy target.
 - `bunfig.toml` enforces a 24h `minimumReleaseAge`; don't add excludes without asking.
 - Deploy: self-hosted Dokploy, linux/amd64, port 3000. Config is runtime env (see `.env.example`); never use `VITE_*` for it.
+- `APP_VERSION` (the deployed tag, shown by `/healthz`) is a Docker build arg turned into a runtime env in the final stage; Dokploy injects nothing, so set it in the app's Build Time Arguments before pushing each tag. Unset = `unknown`.
 - Adding a route file requires a build/dev run to regenerate `routeTree.gen.ts`.
 - Git: don't stage/commit/push unless asked.
