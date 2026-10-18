@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
 import { commonsThumb, FEATURED, type FeaturedArtist } from "@/data/featured";
 
@@ -27,7 +28,13 @@ function Avatar({ artist }: { artist: FeaturedArtist }) {
   );
 }
 
-export function FeaturedArtists({ onPick }: { onPick: (mbid: string, name: string) => void }) {
+/**
+ * Each card is a real link to /artist/$mbid, so it can be middle-clicked,
+ * opened in a new tab and crawled. `onPick` is only an analytics hook: it
+ * fires on a primary click (including ctrl/cmd-click) and on middle-click,
+ * and never blocks navigation.
+ */
+export function FeaturedArtists({ onPick }: { onPick?: (mbid: string, name: string) => void }) {
   return (
     <section aria-labelledby="featured-heading">
       <div className="mb-4 flex items-baseline justify-between gap-3">
@@ -39,11 +46,15 @@ export function FeaturedArtists({ onPick }: { onPick: (mbid: string, name: strin
       <ul className="grid grid-cols-1 gap-2.5 min-[480px]:grid-cols-2 lg:grid-cols-3">
         {FEATURED.map((a) => (
           <li key={a.mbid}>
-            <button
-              type="button"
-              onClick={() => onPick(a.mbid, a.name)}
+            <Link
+              to="/artist/$mbid"
+              params={{ mbid: a.mbid }}
+              onClick={() => onPick?.(a.mbid, a.name)}
+              onAuxClick={(e) => {
+                if (e.button === 1) onPick?.(a.mbid, a.name);
+              }}
               aria-label={`${a.name}: ${a.blurb}`}
-              className="group flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-card p-3 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Avatar artist={a} />
               <span className="min-w-0 flex-1">
@@ -54,7 +65,7 @@ export function FeaturedArtists({ onPick }: { onPick: (mbid: string, name: strin
                 aria-hidden="true"
                 className="size-4 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100"
               />
-            </button>
+            </Link>
           </li>
         ))}
       </ul>

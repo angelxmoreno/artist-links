@@ -121,13 +121,8 @@ function Index() {
 
       {state.kind === "idle" && (
         <div className="mt-12 space-y-14">
-          <RecentList items={recent} onPick={(mbid) => void goToArtist(mbid)} onClear={clear} />
-          <FeaturedArtists
-            onPick={(mbid) => {
-              track("featured_click");
-              void goToArtist(mbid);
-            }}
-          />
+          <RecentList items={recent} onClear={clear} />
+          <FeaturedArtists onPick={() => track("featured_click")} />
           <Hero />
         </div>
       )}

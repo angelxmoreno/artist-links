@@ -7,7 +7,7 @@ import {
   Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const lookupByUrl = vi.fn();
@@ -37,10 +37,17 @@ function mount(path: string) {
   return router;
 }
 
-beforeEach(() => localStorage.clear());
+const umamiTrack = vi.fn();
+
+beforeEach(() => {
+  localStorage.clear();
+  window.umami = { track: umamiTrack };
+});
 afterEach(() => {
   cleanup();
   lookupByUrl.mockReset();
+  umamiTrack.mockReset();
+  delete window.umami;
 });
 
 describe("home route", () => {
@@ -59,6 +66,38 @@ describe("home route", () => {
     );
     mount("/");
     expect(await screen.findByText("Zed Artist")).toBeInTheDocument();
+  });
+
+  it("idle: featured artists are links to their artist pages", async () => {
+    mount("/");
+    await screen.findByRole("combobox");
+    for (const a of FEATURED) {
+      const link = screen.getByRole("link", { name: new RegExp(`^${a.name}`) });
+      expect(link).toHaveAttribute("href", `/artist/${a.mbid}`);
+    }
+  });
+
+  it("idle: clicking a featured artist tracks featured_click and navigates", async () => {
+    const router = mount("/");
+    const first = FEATURED[0]!;
+    fireEvent.click(await screen.findByRole("link", { name: new RegExp(`^${first.name}`) }));
+    expect(umamiTrack).toHaveBeenCalledWith("featured_click", undefined);
+    expect(await screen.findByText("artist page")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(`/artist/${first.mbid}`);
+  });
+
+  it("idle: recently viewed artists are links to their artist pages", async () => {
+    localStorage.setItem(
+      RECENT_KEY,
+      JSON.stringify([{ mbid: "m1", name: "Zed Artist", viewedAt: 1 }]),
+    );
+    const router = mount("/");
+    const link = await screen.findByRole("link", { name: /Zed Artist/ });
+    expect(link).toHaveAttribute("href", "/artist/m1");
+    fireEvent.click(link);
+    expect(await screen.findByText("artist page")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/artist/m1");
+    expect(umamiTrack).not.toHaveBeenCalled();
   });
 
   it("found: redirects ?url= to the artist page", async () => {

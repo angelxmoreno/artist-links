@@ -1,15 +1,8 @@
+import { Link } from "@tanstack/react-router";
 import { History } from "lucide-react";
 import type { RecentArtist } from "@/hooks/use-recent";
 
-export function RecentList({
-  items,
-  onPick,
-  onClear,
-}: {
-  items: RecentArtist[];
-  onPick: (mbid: string) => void;
-  onClear: () => void;
-}) {
+export function RecentList({ items, onClear }: { items: RecentArtist[]; onClear: () => void }) {
   if (items.length === 0) return null;
   return (
     <section aria-labelledby="recent-heading">
@@ -31,11 +24,11 @@ export function RecentList({
       <ul className="flex flex-wrap gap-2">
         {items.map((r) => (
           <li key={r.mbid} className="max-w-full">
-            <button
-              type="button"
-              onClick={() => onPick(r.mbid)}
+            <Link
+              to="/artist/$mbid"
+              params={{ mbid: r.mbid }}
               title={r.subtitle ? `${r.name} · ${r.subtitle}` : r.name}
-              className="inline-flex max-w-full items-baseline gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-sm transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex max-w-full cursor-pointer items-baseline gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 text-sm transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="truncate font-medium">{r.name}</span>
               {r.subtitle && (
@@ -43,7 +36,7 @@ export function RecentList({
                   {r.subtitle}
                 </span>
               )}
-            </button>
+            </Link>
           </li>
         ))}
       </ul>
