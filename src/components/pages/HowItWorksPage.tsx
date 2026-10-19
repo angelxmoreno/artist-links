@@ -54,8 +54,8 @@ export function HowItWorksPage() {
           <li>A photo lookup is kept for 7 days; "this artist has no photo" for 1 day.</li>
           <li>
             Artists whose page was opened (and who have at least one link) are remembered, with
-            their name, so they can be listed in the <Link to="/artists">artist directory</Link> and
-            the sitemap. An artist nobody opens for a year drops out.
+            their name, so they can be listed in the sitemap. An artist nobody opens for a year
+            drops out.
           </li>
           <li>
             Your recently viewed artists are kept in your own browser, not on our server. See the{" "}

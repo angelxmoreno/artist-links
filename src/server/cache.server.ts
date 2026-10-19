@@ -1,6 +1,6 @@
 // Server-only persisted cache built on keyvhq. One SQLite file (CACHE_DB_PATH) holds two
 // namespaces: "mb" (MusicBrainz responses, TTL'd) and "viewed" (MBIDs, plus the artist's name,
-// of artist pages we served, used by the sitemap and the /artists directory). Empty CACHE_DB_PATH, or a file that can't be opened, means
+// of artist pages we served, used by the sitemap). Empty CACHE_DB_PATH, or a file that can't be opened, means
 // a bounded in-memory store instead. Cache problems never reach the visitor: reads that fail
 // count as misses and writes that fail are dropped.
 import { mkdirSync } from "node:fs";
@@ -134,7 +134,7 @@ export interface AppCache {
   backend(): Promise<CacheBackend>;
   /**
    * Remember an artist page that was served (fire and forget; never throws). The artist's name
-   * is stored with the id so the /artists directory can list it without asking MusicBrainz.
+   * is stored with the id so a name-based listing can be built later without asking MusicBrainz.
    */
   recordViewed(mbid: string, name?: string): Promise<void>;
   /** MBIDs of viewed artists, at most `max`, oldest view first. Empty on error. */
