@@ -6,7 +6,6 @@ export const SITE_PAGES = [
   { to: "/about", label: "About" },
   { to: "/how-it-works", label: "How it works" },
   { to: "/platforms", label: "Platforms" },
-  { to: "/artists", label: "Artists" },
   { to: "/privacy", label: "Privacy" },
 ] as const;
 

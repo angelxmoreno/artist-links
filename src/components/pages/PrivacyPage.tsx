@@ -44,9 +44,8 @@ export function PrivacyPage() {
           <li>
             <strong>A list of viewed artists.</strong> When an artist page that has at least one
             link is opened, the artist's MusicBrainz ID and name are remembered, so the artist can
-            appear in the <Link to="/artists">artist directory</Link> and the sitemap. Entries
-            expire after a year without a view. This list holds no information about who viewed
-            what.
+            appear in the sitemap. Entries expire after a year without a view. This list holds no
+            information about who viewed what.
           </li>
           <li>
             <strong>A request counter.</strong> To keep one visitor from overloading MusicBrainz,

@@ -21,7 +21,7 @@ describe("SiteShell navigation", () => {
   it("links the main pages from the header", async () => {
     await renderWithRouter(<SiteShell>content</SiteShell>);
     const header = screen.getByRole("navigation", { name: "Main" });
-    for (const label of ["About", "How it works", "Platforms", "Artists"])
+    for (const label of ["About", "How it works", "Platforms"])
       expect(within(header).getByRole("link", { name: label })).toBeInTheDocument();
   });
 

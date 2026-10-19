@@ -10,26 +10,20 @@ export const Route = createFileRoute("/sitemap.xml")({
           { originFromRequest },
           { FEATURED },
           { listViewedArtists, SITEMAP_MAX_URLS },
-          { getDirectory },
-          { directoryPaths },
           { SITE_PAGES },
         ] = await Promise.all([
           import("../server/origin"),
           import("../data/featured"),
           import("../server/cache.server"),
-          import("../server/directory.server"),
-          import("../lib/directory"),
           import("../lib/nav"),
         ]);
         const origin = originFromRequest(request);
-        // Home, the static pages, the directory pages that have content and Featured come first;
-        // viewed artists fill what is left of the 50,000-URL limit of one sitemap file (beyond
-        // that, switch to a sitemap index of several files). /artists is listed by directoryPaths.
-        const directory = directoryPaths(await getDirectory());
+        // Home, the static pages and Featured come first; viewed artists fill what is left of
+        // the 50,000-URL limit of one sitemap file (beyond that, switch to a sitemap index of
+        // several files).
         const fixed = [
           "/",
-          ...SITE_PAGES.map((p) => p.to).filter((p) => p !== "/artists"),
-          ...directory,
+          ...SITE_PAGES.map((p) => p.to),
           ...FEATURED.map((a) => `/artist/${a.mbid}`),
         ];
         const viewed = (await listViewedArtists(SITEMAP_MAX_URLS))

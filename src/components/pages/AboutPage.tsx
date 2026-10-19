@@ -22,8 +22,7 @@ export function AboutPage() {
         </p>
         <p>
           See <Link to="/how-it-works">how it works</Link> for the details and{" "}
-          <Link to="/platforms">the platforms we recognise</Link>. You can also{" "}
-          <Link to="/artists">browse the artist directory</Link>.
+          <Link to="/platforms">the platforms we recognise</Link>..
         </p>
       </Section>
 

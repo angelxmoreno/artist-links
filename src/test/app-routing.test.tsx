@@ -20,9 +20,6 @@ describe("App routing", () => {
     ["/how-it-works", "/how-it-works"],
     ["/platforms", "/platforms"],
     ["/privacy", "/privacy"],
-    ["/artists", "/artists/"],
-    ["/artists/b", "/artists/$letter"],
-    ["/artists/b?page=2", "/artists/$letter"],
   ])("matches %s to its own route", (path, routeId) => {
     const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
 
